@@ -3,6 +3,7 @@ package me.petr1furious.hideandseek;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.damage.DamageSource;
 import org.bukkit.damage.DamageType;
 import org.bukkit.entity.Arrow;
@@ -342,7 +343,17 @@ public class HideAndSeek extends JavaPlugin implements Listener {
         double x = gameCenter.getX() + (random.nextDouble() * 2 - 1) * gameRadius;
         double y = gameCenter.getY() + (random.nextDouble() * 2 - 1) * gameRadius;
         double z = gameCenter.getZ() + (random.nextDouble() * 2 - 1) * gameRadius;
-        return new Location(Bukkit.getWorlds().get(0), x, y, z);
+
+        List<World> worlds = Bukkit.getWorlds();
+        World world = worlds.get(0);
+        for (World w : worlds) {
+            if (w.getName().equals(gameConfig.getGameWorld())) {
+                world = w;
+                break;
+            }
+        }
+
+        return new Location(world, x, y, z);
     }
 
     Location getRandomLocationInSphere() {

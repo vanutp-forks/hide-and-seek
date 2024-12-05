@@ -112,6 +112,7 @@ public class CommandHandler {
                     .executes(ctx -> {
                         var player = (Player) ctx.getSource().getExecutor();
                         plugin.getGameConfig().setGameCenter(player.getLocation().toVector());
+                        plugin.getGameConfig().setGameWorld(player.getWorld().getName());
                         saveGameSettings();
                         player.sendMessage(
                             Component.text("Game center set to your location").color(NamedTextColor.GREEN));

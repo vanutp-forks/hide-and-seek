@@ -8,6 +8,7 @@ public class GameConfig {
     FileConfiguration config;
 
     private Vector gameCenter;
+    private String gameWorld;
     private int gameRadius;
     private boolean enableExplosions;
     private double explosionPower;
@@ -22,6 +23,7 @@ public class GameConfig {
 
     public void load() {
         gameCenter = config.getVector("gameCenter", new Vector(0, 0, 0));
+        gameWorld = config.getString("gameWorld", "world");
         gameRadius = config.getInt("gameRadius", 100);
         enableExplosions = config.getBoolean("enableExplosions", true);
         explosionPower = config.getDouble("explosionPower", 2.0f);
@@ -32,6 +34,7 @@ public class GameConfig {
 
     public void save() {
         config.set("gameCenter", gameCenter);
+        config.set("gameWorld", gameWorld);
         config.set("gameRadius", gameRadius);
         config.set("enableExplosions", enableExplosions);
         config.set("explosionPower", explosionPower);
@@ -42,6 +45,10 @@ public class GameConfig {
 
     public Vector getGameCenter() {
         return gameCenter;
+    }
+
+    public String getGameWorld() {
+        return gameWorld;
     }
 
     public int getGameRadius() {
@@ -70,6 +77,11 @@ public class GameConfig {
 
     public void setGameCenter(Vector gameCenter) {
         this.gameCenter = gameCenter;
+        save();
+    }
+
+    public void setGameWorld(String gameWorld) {
+        this.gameWorld = gameWorld;
         save();
     }
 
