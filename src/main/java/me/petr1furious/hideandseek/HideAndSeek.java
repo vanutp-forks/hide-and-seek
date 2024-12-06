@@ -3,19 +3,20 @@ package me.petr1furious.hideandseek;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
-import org.bukkit.damage.DamageSource;
-import org.bukkit.damage.DamageType;
+import org.bukkit.entity.AbstractArrow;
 import org.bukkit.entity.Arrow;
-import org.bukkit.entity.Damageable;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityShootBowEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
-import org.bukkit.inventory.meta.CrossbowMeta;
-import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scoreboard.Criteria;
 import org.bukkit.scoreboard.DisplaySlot;
@@ -29,7 +30,6 @@ import java.util.List;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextDecoration;
 import net.md_5.bungee.api.ChatColor;
 
 public class HideAndSeek extends JavaPlugin implements Listener {
@@ -176,27 +176,6 @@ public class HideAndSeek extends JavaPlugin implements Listener {
         }
     }
 
-    boolean checkForInfiniteCrossbow(org.bukkit.inventory.ItemStack item) {
-        if (item == null) {
-            return false;
-        }
-        if (item.getType() == org.bukkit.Material.CROSSBOW && item.getItemMeta().hasCustomModelData()
-            && item.getItemMeta().getCustomModelData() == 1) {
-            return true;
-        }
-        return false;
-    }
-
-    void setCrossbowMetaLore(ItemMeta meta, int projectiles) {
-        List<Component> metaLore = new java.util.ArrayList<>();
-        metaLore.add(Component.text("Crossbow with infinite ammo").color(NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false));
-        if (gameConfig.getMaxLoadedCrossbowProjectiles() > 1) {
-            metaLore.add(Component.text("Loaded: " + projectiles + "/" + gameConfig.getMaxLoadedCrossbowProjectiles())
-                .color(NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false));
-        }
-        meta.lore(metaLore);
-    }
-
     void registerEvents() {
         getServer().getPluginManager().registerEvents(new Listener() {
             @EventHandler
@@ -231,15 +210,11 @@ public class HideAndSeek extends JavaPlugin implements Listener {
 
             @EventHandler
             public void onProjectileHit(ProjectileHitEvent event) {
-                if (!gameConfig.isEnableExplosions()) {
-                    return;
-                }
-
                 if (event.getEntity() instanceof Arrow) {
                     var arrow = (Arrow) event.getEntity();
-                    Location hitLocation = arrow.getLocation();
-                    Utils.spawnExplosion(hitLocation, gameConfig.getExplosionPower());
-                    event.getEntity().remove();
+                    var shooter = Utils.getEntityShooter(arrow);
+
+                    handleArrowHitLocation(arrow, arrow.getLocation(), shooter, null);
                 }
             }
 
@@ -251,50 +226,66 @@ public class HideAndSeek extends JavaPlugin implements Listener {
 
                 if (event.getDamager() instanceof Arrow) {
                     var arrow = (Arrow) event.getDamager();
-                    Location hitLocation = event.getEntity().getLocation();
-                    Utils.spawnExplosion(hitLocation, gameConfig.getExplosionPower());
 
                     var entity = event.getEntity();
                     var shooter = Utils.getEntityShooter(arrow);
-                    if (entity instanceof Damageable && shooter != null) {
-                        var damageable = (Damageable) entity;
-                        damageable.damage(100, DamageSource.builder(DamageType.EXPLOSION)
-                            .withDirectEntity(shooter).build());
-                        event.setCancelled(true);
-                    }
+
+                    handleArrowHitLocation(arrow, entity.getLocation(), shooter, entity);
+                    event.setCancelled(true);
                 }
             }
 
             @EventHandler
             public void onPlayerInteract(org.bukkit.event.player.PlayerInteractEvent event) {
-                boolean isLeftClick = event.getAction() == org.bukkit.event.block.Action.LEFT_CLICK_AIR
-                    || event.getAction() == org.bukkit.event.block.Action.LEFT_CLICK_BLOCK;
-                var player = event.getPlayer();
-                if (checkForInfiniteCrossbow(event.getItem())) {
-                    var crossbow = event.getItem();
-                    var meta = (CrossbowMeta) crossbow.getItemMeta();
-                    int count = meta.getChargedProjectiles().size();
-                    if (count < gameConfig.getMaxLoadedCrossbowProjectiles()) {
-                        meta.addChargedProjectile(new org.bukkit.inventory.ItemStack(org.bukkit.Material.ARROW));
-                        setCrossbowMetaLore(meta, count + 1);
-                        crossbow.setItemMeta(meta);
-
-                        if (isLeftClick) {
-                            player.playSound(player.getLocation(), org.bukkit.Sound.BLOCK_NOTE_BLOCK_BIT, 0.1f, 2f);
-                        }
-                    } else {
-                        if (isLeftClick) {
-                            player.playSound(player.getLocation(), org.bukkit.Sound.BLOCK_NOTE_BLOCK_BIT, 0.1f, 0.5f);
-                        }
-                    }
-                }
+                Items.interactWithInfiniteCrossbow(event, gameConfig.getMaxLoadedCrossbowProjectiles());
             }
 
             @EventHandler
             public void onPlayerMove(org.bukkit.event.player.PlayerMoveEvent event) {
                 liftHandler.handleLift(event.getPlayer(), gameConfig.getLiftMaterial(), gameConfig.isEnableLifts());
             }
+
+            @EventHandler
+            public void onArrowShoot(EntityShootBowEvent event) {
+                if (event.getBow() == null) return;
+                ItemStack bow = event.getBow();
+                if (bow.getType() == Material.CROSSBOW && event.getProjectile() instanceof Arrow arrow) {
+                    if (bow.getItemMeta().hasCustomModelData()) {
+                        int cmd = bow.getItemMeta().getCustomModelData();
+                        if (cmd == 1) {
+                            arrow.getPersistentDataContainer().set(Items.ARROW_TYPE_KEY, PersistentDataType.STRING, Items.INFINITE_TAG);
+                        } else if (cmd == 2) {
+                            arrow.getPersistentDataContainer().set(Items.ARROW_TYPE_KEY, PersistentDataType.STRING, Items.ORESHNIK_INITIAL_TAG);
+                        }
+                    }
+                }
+            }
         }, this);
+    }
+
+    void handleArrowHitLocation(Arrow arrow, Location location, Entity shooter, Entity target) {
+        String arrowType = arrow.getPersistentDataContainer().get(Items.ARROW_TYPE_KEY, PersistentDataType.STRING);
+
+        if (Items.INFINITE_TAG.equals(arrowType) || Items.ORESHNIK_TAG.equals(arrowType)) {
+            if (gameConfig.isEnableExplosions()) {
+                if (Items.ORESHNIK_TAG.equals(arrowType)) {
+                    Utils.spawnExplosion(location, gameConfig.getOreshnikExplosionPower(), shooter);
+                } else {
+                    Utils.spawnExplosion(location, gameConfig.getExplosionPower(), shooter);
+                }
+                if (target != null) {
+                    Utils.killWithExplosion(target, shooter);
+                }
+    
+                arrow.remove();
+            }
+        }
+
+        if (Items.ORESHNIK_INITIAL_TAG.equals(arrowType)) {
+            spawnArrowWaves(location, gameConfig.getOreshnikWavesCount(), gameConfig.getOreshnikArrowsCount());
+
+            arrow.remove();
+        }
     }
 
     void updateDistances() {
@@ -366,6 +357,27 @@ public class HideAndSeek extends JavaPlugin implements Listener {
                 && location.getY() <= location.getWorld().getMaxHeight()) {
                 return location;
             }
+        }
+    }
+
+    public void spawnArrowWaves(Location center, int wavesCount, int arrowsCount) {
+        double spawnHeight = 400;
+        
+        for (int wave = 0; wave < wavesCount; wave++) {
+            Bukkit.getScheduler().runTaskLater(this, () -> {
+                for (int i = 0; i < arrowsCount; i++) {
+                    Location arrowLoc = center.clone().add(0, spawnHeight, 0);
+                    arrowLoc.getWorld().spawn(arrowLoc, Arrow.class, spawnedArrow -> {
+                        spawnedArrow.getPersistentDataContainer().set(Items.ARROW_TYPE_KEY, PersistentDataType.STRING, "oreshnik");
+
+                        double oreshnikRange = gameConfig.getOreshnikRange();
+                        double randomX = (new Random().nextDouble() - 0.5) * oreshnikRange;
+                        double randomZ = (new Random().nextDouble() - 0.5) * oreshnikRange;
+                        spawnedArrow.setVelocity(spawnedArrow.getVelocity().add(new org.bukkit.util.Vector(randomX, -7.0, randomZ)));
+                        spawnedArrow.setPickupStatus(AbstractArrow.PickupStatus.DISALLOWED);
+                    });
+                }
+            }, wave * gameConfig.getOreshnikWavesDelay());
         }
     }
 }

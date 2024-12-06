@@ -1,12 +1,14 @@
 package me.petr1furious.hideandseek;
 
 import org.bukkit.Location;
+import org.bukkit.damage.DamageSource;
+import org.bukkit.damage.DamageType;
 import org.bukkit.entity.Arrow;
+import org.bukkit.entity.Damageable;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 
 public class Utils {
-
     static public boolean playerPassable(Location location) {
         return location.getBlock().isPassable() && location.add(0, 1, 0).getBlock().isPassable();
     }
@@ -56,8 +58,25 @@ public class Utils {
         }
     }
 
-    static public void spawnExplosion(Location location, double explosionPower) {
-        location.getWorld().createExplosion(location, (float) explosionPower, false, true);
+    static public void spawnExplosion(Location location, double explosionPower, Entity entity) {
+        if (entity == null) {
+            location.getWorld().createExplosion(location, (float) explosionPower, false, true);
+        } else {
+            location.getWorld().createExplosion(location, (float) explosionPower, false, true);
+        }
+    }
+
+    static public void killWithExplosion(Entity target, Entity attacker) {
+        if (target instanceof Damageable) {
+            var damageable = (Damageable) target;
+            var damageSource = DamageSource.builder(DamageType.EXPLOSION);
+            if (attacker != null) {
+                damageSource.withCausingEntity(attacker);
+            }
+            damageable.damage(1000, damageSource.build());
+        } else {
+            target.remove();
+        }
     }
 
     static public Entity getEntityShooter(Arrow arrow) {

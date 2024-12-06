@@ -4,7 +4,7 @@ import java.util.List;
 
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.meta.CrossbowMeta;
+import org.bukkit.inventory.ItemStack;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.BoolArgumentType;
@@ -18,7 +18,6 @@ import io.papermc.paper.command.brigadier.argument.resolvers.selector.PlayerSele
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextDecoration;
 
 public class CommandHandler {
     private final HideAndSeek plugin;
@@ -59,21 +58,9 @@ public class CommandHandler {
         plugin.addPlayerToGame(target, plugin.getGameTeleport());
     }
 
-    void giveInfiniteCrossbow(List<Player> players) {
-        var crossbow = new org.bukkit.inventory.ItemStack(org.bukkit.Material.CROSSBOW);
-        var meta = crossbow.getItemMeta();
-        meta.displayName(
-            Component.text("Infinite Crossbow").color(NamedTextColor.GOLD).decoration(TextDecoration.ITALIC, false));
-        meta.setCustomModelData(1);
-        meta.setUnbreakable(true);
-        plugin.setCrossbowMetaLore(meta, 1);
-        meta.setEnchantmentGlintOverride(true);
-        var crossbowMeta = (CrossbowMeta) crossbow.getItemMeta();
-        crossbowMeta.addChargedProjectile(new org.bukkit.inventory.ItemStack(org.bukkit.Material.ARROW));
-        crossbow.setItemMeta(meta);
-
+    void giveItem(List<Player> players, ItemStack item) {
         for (var player : players) {
-            player.getInventory().addItem(crossbow);
+            player.getInventory().addItem(item);
         }
     }
 
@@ -165,6 +152,27 @@ public class CommandHandler {
                                 .color(NamedTextColor.GREEN));
                         return Command.SINGLE_SUCCESS;
                     })))
+                .then(Commands.literal("setoreshnik")
+                    .then(Commands.argument("waves", IntegerArgumentType.integer(1))
+                        .then(Commands.argument("arrows", IntegerArgumentType.integer(1))
+                            .then(Commands.argument("delay", IntegerArgumentType.integer(1))
+                                .then(Commands.argument("explosionpower", DoubleArgumentType.doubleArg())
+                                    .then(Commands.argument("range", DoubleArgumentType.doubleArg()).executes(ctx -> {
+                                        int waves = IntegerArgumentType.getInteger(ctx, "waves");
+                                        int arrows = IntegerArgumentType.getInteger(ctx, "arrows");
+                                        int delay = IntegerArgumentType.getInteger(ctx, "delay");
+                                        double explosionPower = DoubleArgumentType.getDouble(ctx, "explosionpower");
+                                        double range = DoubleArgumentType.getDouble(ctx, "range");
+                                        plugin.getGameConfig().setOreshnikWavesCount(waves);
+                                        plugin.getGameConfig().setOreshnikArrowsCount(arrows);
+                                        plugin.getGameConfig().setOreshnikWavesDelay(delay);
+                                        plugin.getGameConfig().setOreshnikExplosionPower(explosionPower);
+                                        plugin.getGameConfig().setOreshnikRange(range);
+                                        saveGameSettings();
+                                        ctx.getSource().getSender().sendMessage(Component.text("Oreshnik set to " + waves + " waves, "
+                                            + arrows + " arrows, " + delay + " wave delay, " + explosionPower + " explosion power, " + range + " range").color(NamedTextColor.GREEN));
+                                        return Command.SINGLE_SUCCESS;
+                                    })))))))
                 .then(Commands.literal("join").requires(source -> source.getExecutor() instanceof Player)
                     .executes(ctx -> {
                         var player = (Player) ctx.getSource().getExecutor();
@@ -182,13 +190,18 @@ public class CommandHandler {
                 .then(Commands.literal("give").then(Commands.argument("players", ArgumentTypes.players())
                     .then(Commands.argument("item", StringArgumentType.string()).suggests((ctx, builder) -> {
                         builder.suggest("infinite_crossbow");
+                        builder.suggest("oreshnik");
                         return builder.buildFuture();
                     }).executes(ctx -> {
                         String item = StringArgumentType.getString(ctx, "item");
                         List<Player> players = ctx.getArgument("players", PlayerSelectorArgumentResolver.class)
                             .resolve(ctx.getSource());
+                        GameConfig config = plugin.getGameConfig();
                         if (item.equals("infinite_crossbow")) {
-                            giveInfiniteCrossbow(players);
+                            giveItem(players, Items.getInfiniteCrossbow(config.getMaxLoadedCrossbowProjectiles()));
+                        }
+                        if (item.equals("oreshnik")) {
+                            giveItem(players, Items.getOreshnik(config.getOreshnikWavesCount(), config.getOreshnikArrowsCount()));
                         }
                         ctx.getSource().getSender()
                             .sendMessage(Component.text("Given item to players").color(NamedTextColor.GREEN));
