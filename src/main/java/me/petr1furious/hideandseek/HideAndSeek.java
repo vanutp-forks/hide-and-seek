@@ -5,13 +5,14 @@ import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.entity.AbstractArrow;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityShootBowEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
@@ -30,7 +31,6 @@ import java.util.List;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.md_5.bungee.api.ChatColor;
 
 public class HideAndSeek extends JavaPlugin implements Listener {
 
@@ -214,24 +214,35 @@ public class HideAndSeek extends JavaPlugin implements Listener {
                     var arrow = (Arrow) event.getEntity();
                     var shooter = Utils.getEntityShooter(arrow);
 
-                    handleArrowHitLocation(arrow, arrow.getLocation(), shooter, null);
-                }
-            }
-
-            @EventHandler
-            public void onEntityDamageByEntity(EntityDamageByEntityEvent event) {
-                if (!gameConfig.isEnableExplosions()) {
-                    return;
-                }
-
-                if (event.getDamager() instanceof Arrow) {
-                    var arrow = (Arrow) event.getDamager();
-
-                    var entity = event.getEntity();
-                    var shooter = Utils.getEntityShooter(arrow);
-
-                    handleArrowHitLocation(arrow, entity.getLocation(), shooter, entity);
                     event.setCancelled(true);
+
+                    Location location;
+                    if (event.getHitBlock() != null && event.getHitBlockFace() != null) {
+                        Vector arrowStart = arrow.getLocation().toVector();
+                        Vector arrowDirection = arrow.getVelocity().normalize();
+
+                        Block hitBlock = event.getHitBlock();
+                        BlockFace hitFace = event.getHitBlockFace();
+                        Vector planeNormal = hitFace.getDirection();
+                        Vector planePoint = hitBlock.getLocation().toVector()
+                            .add(new Vector(0.5, 0.5, 0.5))
+                            .add(planeNormal.multiply(0.501));
+
+                        double denominator = planeNormal.dot(arrowDirection);
+                        if (Math.abs(denominator) > 1e-6) {
+                            double t = planeNormal.dot(planePoint.subtract(arrowStart)) / denominator;
+                            Vector intersection = arrowStart.add(arrowDirection.multiply(t));
+                            location = intersection.toLocation(arrow.getWorld());
+                        } else {
+                            location = arrow.getLocation();
+                        }
+                    } else if (event.getHitEntity() != null) {
+                        location = event.getHitEntity().getLocation();
+                    } else {
+                        location = arrow.getLocation();
+                    }
+
+                    handleArrowHitLocation(arrow, location, shooter, event.getHitEntity());
                 }
             }
 
@@ -247,15 +258,18 @@ public class HideAndSeek extends JavaPlugin implements Listener {
 
             @EventHandler
             public void onArrowShoot(EntityShootBowEvent event) {
-                if (event.getBow() == null) return;
+                if (event.getBow() == null)
+                    return;
                 ItemStack bow = event.getBow();
                 if (bow.getType() == Material.CROSSBOW && event.getProjectile() instanceof Arrow arrow) {
                     if (bow.getItemMeta().hasCustomModelData()) {
                         int cmd = bow.getItemMeta().getCustomModelData();
                         if (cmd == 1) {
-                            arrow.getPersistentDataContainer().set(Items.ARROW_TYPE_KEY, PersistentDataType.STRING, Items.INFINITE_TAG);
+                            arrow.getPersistentDataContainer().set(Items.ARROW_TYPE_KEY, PersistentDataType.STRING,
+                                Items.INFINITE_TAG);
                         } else if (cmd == 2) {
-                            arrow.getPersistentDataContainer().set(Items.ARROW_TYPE_KEY, PersistentDataType.STRING, Items.ORESHNIK_INITIAL_TAG);
+                            arrow.getPersistentDataContainer().set(Items.ARROW_TYPE_KEY, PersistentDataType.STRING,
+                                Items.ORESHNIK_INITIAL_TAG);
                         }
                     }
                 }
@@ -276,7 +290,7 @@ public class HideAndSeek extends JavaPlugin implements Listener {
                 if (target != null) {
                     Utils.killWithExplosion(target, shooter);
                 }
-    
+
                 arrow.remove();
             }
         }
@@ -316,7 +330,8 @@ public class HideAndSeek extends JavaPlugin implements Listener {
                 double distance = player1.getLocation().distance(player2.getLocation());
                 int roundedDistance = (int) (Math.round(distance / 50.0) * 50);
                 String distanceRange = getDistanceRange(roundedDistance);
-                playerObjective.getScore(ChatColor.GOLD + distanceRange + ChatColor.AQUA + " " + player2.getName())
+                playerObjective.getScore(Component.text(distanceRange).color(NamedTextColor.GOLD)
+                    .append(Component.text(" " + player2.getName()).color(NamedTextColor.AQUA)).toString())
                     .setScore(roundedDistance);
             }
         }
@@ -361,20 +376,27 @@ public class HideAndSeek extends JavaPlugin implements Listener {
     }
 
     public void spawnArrowWaves(Location center, int wavesCount, int arrowsCount) {
-        double spawnHeight = 400;
-        
+        double spawnHeight = 500;
+
         for (int wave = 0; wave < wavesCount; wave++) {
             Bukkit.getScheduler().runTaskLater(this, () -> {
                 for (int i = 0; i < arrowsCount; i++) {
                     Location arrowLoc = center.clone().add(0, spawnHeight, 0);
                     arrowLoc.getWorld().spawn(arrowLoc, Arrow.class, spawnedArrow -> {
-                        spawnedArrow.getPersistentDataContainer().set(Items.ARROW_TYPE_KEY, PersistentDataType.STRING, "oreshnik");
+                        spawnedArrow.getPersistentDataContainer().set(Items.ARROW_TYPE_KEY, PersistentDataType.STRING,
+                            "oreshnik");
 
                         double oreshnikRange = gameConfig.getOreshnikRange();
-                        double randomX = (new Random().nextDouble() - 0.5) * oreshnikRange;
-                        double randomZ = (new Random().nextDouble() - 0.5) * oreshnikRange;
-                        spawnedArrow.setVelocity(spawnedArrow.getVelocity().add(new org.bukkit.util.Vector(randomX, -7.0, randomZ)));
+                        double randomX;
+                        double randomZ;
+                        do {
+                            randomX = (random.nextDouble() * 2 - 1) * oreshnikRange;
+                            randomZ = (random.nextDouble() * 2 - 1) * oreshnikRange;
+                        } while (randomX * randomX + randomZ * randomZ > oreshnikRange * oreshnikRange);
+                        spawnedArrow.setVelocity(
+                            spawnedArrow.getVelocity().add(new org.bukkit.util.Vector(randomX, -10.0, randomZ)));
                         spawnedArrow.setPickupStatus(AbstractArrow.PickupStatus.DISALLOWED);
+                        spawnedArrow.setFireTicks(Integer.MAX_VALUE);
                     });
                 }
             }, wave * gameConfig.getOreshnikWavesDelay());

@@ -22,7 +22,8 @@ public class Items {
 
     static void setInfiniteCrossbowMetaLore(ItemMeta meta, int projectiles, int maxProjectiles) {
         List<Component> metaLore = new java.util.ArrayList<>();
-        metaLore.add(Component.text("Crossbow with infinite ammo").color(NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false));
+        metaLore.add(Component.text("Crossbow with infinite ammo").color(NamedTextColor.GRAY)
+            .decoration(TextDecoration.ITALIC, false));
         if (maxProjectiles > 1) {
             metaLore.add(Component.text("Loaded: " + projectiles + "/" + maxProjectiles)
                 .color(NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false));
@@ -42,8 +43,10 @@ public class Items {
     }
 
     static boolean checkForOreshnikCrossbow(ItemStack item) {
-        if (item == null) return false;
-        if (item.getType() == Material.CROSSBOW && item.getItemMeta().hasCustomModelData() && item.getItemMeta().getCustomModelData() == 2) {
+        if (item == null)
+            return false;
+        if (item.getType() == Material.CROSSBOW && item.getItemMeta().hasCustomModelData()
+            && item.getItemMeta().getCustomModelData() == 2) {
             return true;
         }
         return false;
@@ -96,13 +99,10 @@ public class Items {
     public static ItemStack getOreshnik(int wavesCount, int arrowsCount) {
         var crossbow = new ItemStack(Material.CROSSBOW);
         var meta = crossbow.getItemMeta();
-        meta.displayName(Component.text("ОРЕШНИК").color(NamedTextColor.DARK_PURPLE).decoration(TextDecoration.ITALIC, false));
+        meta.displayName(
+            Component.text("ОРЕШНИК").color(NamedTextColor.DARK_PURPLE).decoration(TextDecoration.ITALIC, false));
         meta.setCustomModelData(2);
         meta.setUnbreakable(true);
-        meta.lore(List.of(
-                Component.text("Rain arrows after ground impact").color(NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false),
-                Component.text("Waves: " + wavesCount + ", Arrows per Wave: " + arrowsCount).color(NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false)
-        ));
         meta.setEnchantmentGlintOverride(true);
         crossbow.setItemMeta(meta);
 

@@ -1,7 +1,7 @@
 main: me.petr1furious.hideandseek.HideAndSeek
 name: hide-and-seek
 version: 0.1
-api-version: 1.13
+api-version: 1.21
 commands:
   gamestate:
     description: Change the state of the game

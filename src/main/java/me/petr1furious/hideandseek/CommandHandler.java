@@ -169,8 +169,10 @@ public class CommandHandler {
                                         plugin.getGameConfig().setOreshnikExplosionPower(explosionPower);
                                         plugin.getGameConfig().setOreshnikRange(range);
                                         saveGameSettings();
-                                        ctx.getSource().getSender().sendMessage(Component.text("Oreshnik set to " + waves + " waves, "
-                                            + arrows + " arrows, " + delay + " wave delay, " + explosionPower + " explosion power, " + range + " range").color(NamedTextColor.GREEN));
+                                        ctx.getSource().getSender()
+                                            .sendMessage(Component.text("Oreshnik set to " + waves + " waves, "
+                                                + arrows + " arrows, " + delay + " wave delay, " + explosionPower
+                                                + " explosion power, " + range + " range").color(NamedTextColor.GREEN));
                                         return Command.SINGLE_SUCCESS;
                                     })))))))
                 .then(Commands.literal("join").requires(source -> source.getExecutor() instanceof Player)
@@ -201,7 +203,8 @@ public class CommandHandler {
                             giveItem(players, Items.getInfiniteCrossbow(config.getMaxLoadedCrossbowProjectiles()));
                         }
                         if (item.equals("oreshnik")) {
-                            giveItem(players, Items.getOreshnik(config.getOreshnikWavesCount(), config.getOreshnikArrowsCount()));
+                            giveItem(players,
+                                Items.getOreshnik(config.getOreshnikWavesCount(), config.getOreshnikArrowsCount()));
                         }
                         ctx.getSource().getSender()
                             .sendMessage(Component.text("Given item to players").color(NamedTextColor.GREEN));

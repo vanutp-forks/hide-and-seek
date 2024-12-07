@@ -20,10 +20,10 @@ public class LiftHandler {
     private Map<Player, Long> lastSoundTime = new HashMap<>();
 
     private char[][] liftPattern = {
-        {'?', 'x', 'x', '?'},
-        {'x', 'o', 'o', 'x'},
-        {'x', 'o', 'o', 'x'},
-        {'?', 'x', 'x', '?'}
+        { '?', 'x', 'x', '?' },
+        { 'x', 'o', 'o', 'x' },
+        { 'x', 'o', 'o', 'x' },
+        { '?', 'x', 'x', '?' }
     };
 
     private int checkLiftSide(Location location, Material liftMaterial, boolean directionUp) {
@@ -53,8 +53,9 @@ public class LiftHandler {
                 }
 
                 boolean good = false;
-                for (boolean directionUp : new boolean[]{false, true}) {
-                    int liftMaterialCount = checkLiftSide(location.clone().add(i - x, 0, j - z), liftMaterial, directionUp);
+                for (boolean directionUp : new boolean[] { false, true }) {
+                    int liftMaterialCount = checkLiftSide(location.clone().add(i - x, 0, j - z), liftMaterial,
+                        directionUp);
                     if (liftMaterialCount == -1) {
                         continue;
                     }
