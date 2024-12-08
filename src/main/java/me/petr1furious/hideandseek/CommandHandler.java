@@ -175,6 +175,21 @@ public class CommandHandler {
                                                 + " explosion power, " + range + " range").color(NamedTextColor.GREEN));
                                         return Command.SINGLE_SUCCESS;
                                     })))))))
+                .then(Commands.literal("sethimars")
+                    .then(Commands.argument("explosionPower", DoubleArgumentType.doubleArg(0.0))
+                        .then(Commands.argument("fireworkSpeed", DoubleArgumentType.doubleArg(0.1, 5.0))
+                            .then(Commands.argument("cooldown (seconds)", IntegerArgumentType.integer(1))
+                                .executes(ctx -> {
+                                    double explosionPower = DoubleArgumentType.getDouble(ctx, "explosionPower");
+                                    double fireworkSpeed = DoubleArgumentType.getDouble(ctx, "fireworkSpeed");
+                                    int cooldown = IntegerArgumentType.getInteger(ctx, "cooldown (seconds)");
+                                    plugin.getGameConfig().setHimarsExplosionPower(explosionPower);
+                                    plugin.getGameConfig().setHimarsFireworkSpeed(fireworkSpeed);
+                                    plugin.getGameConfig().setHimarsCooldown(cooldown);
+                                    ctx.getSource().getSender().sendMessage(
+                                        Component.text("HIMARS settings updated").color(NamedTextColor.GREEN));
+                                    return Command.SINGLE_SUCCESS;
+                                })))))
                 .then(Commands.literal("join").requires(source -> source.getExecutor() instanceof Player)
                     .executes(ctx -> {
                         var player = (Player) ctx.getSource().getExecutor();
@@ -193,6 +208,7 @@ public class CommandHandler {
                     .then(Commands.argument("item", StringArgumentType.string()).suggests((ctx, builder) -> {
                         builder.suggest("infinite_crossbow");
                         builder.suggest("oreshnik");
+                        builder.suggest("himars");
                         return builder.buildFuture();
                     }).executes(ctx -> {
                         String item = StringArgumentType.getString(ctx, "item");
@@ -206,6 +222,9 @@ public class CommandHandler {
                             giveItem(players,
                                 Items.getOreshnik(config.getOreshnikWavesCount(), config.getOreshnikArrowsCount()));
                         }
+                        if (item.equals("himars")) {
+                            giveItem(players, Items.getHimars(config.getHimarsFireworkSpeed()));
+                        }
                         ctx.getSource().getSender()
                             .sendMessage(Component.text("Given item to players").color(NamedTextColor.GREEN));
                         return Command.SINGLE_SUCCESS;
@@ -217,6 +236,16 @@ public class CommandHandler {
                         .sendMessage(Component.text("Config reloaded").color(NamedTextColor.GREEN));
                     return Command.SINGLE_SUCCESS;
                 }))
+                .then(Commands.literal("setinventory")
+                    .then(Commands.argument("enable", BoolArgumentType.bool()).executes(ctx -> {
+                        boolean enableGameInventory = BoolArgumentType.getBool(ctx, "enable");
+                        plugin.getGameConfig().setEnableGameInventory(enableGameInventory);
+                        saveGameSettings();
+                        ctx.getSource().getSender().sendMessage(Component
+                            .text("Game inventory " + (enableGameInventory ? "enabled" : "disabled"))
+                            .color(NamedTextColor.GREEN));
+                        return Command.SINGLE_SUCCESS;
+                    })))
                 .then(Commands.literal("inventory")
                     .then(Commands.literal("copy").then(Commands.argument("source", ArgumentTypes.player())
                         .then(Commands.argument("targets", ArgumentTypes.players()).executes(ctx -> {
@@ -230,7 +259,21 @@ public class CommandHandler {
                             ctx.getSource().getSender()
                                 .sendMessage(Component.text("Copied inventory").color(NamedTextColor.GREEN));
                             return Command.SINGLE_SUCCESS;
-                        })))))
+                        }))))
+                    .then(Commands.literal("save").requires(source -> source.getExecutor() instanceof Player)
+                        .executes(ctx -> {
+                            Player player = (Player) ctx.getSource().getExecutor();
+                            plugin.saveGameInventory(player);
+                            player.sendMessage(Component.text("Game inventory saved").color(NamedTextColor.GREEN));
+                            return Command.SINGLE_SUCCESS;
+                        }))
+                    .then(Commands.literal("load").requires(source -> source.getExecutor() instanceof Player)
+                        .executes(ctx -> {
+                            Player player = (Player) ctx.getSource().getExecutor();
+                            plugin.loadGameInventory(player);
+                            player.sendMessage(Component.text("Game inventory loaded").color(NamedTextColor.GREEN));
+                            return Command.SINGLE_SUCCESS;
+                        })))
                 .build();
             commands.register(hideAndSeekCommand);
         });

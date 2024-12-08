@@ -1,7 +1,10 @@
 package me.petr1furious.hideandseek;
 
+import java.util.ArrayList;
+
 import org.bukkit.Material;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
 public class GameConfig {
@@ -10,16 +13,28 @@ public class GameConfig {
     private Vector gameCenter;
     private String gameWorld;
     private int gameRadius;
+
     private boolean enableExplosions;
     private double explosionPower;
+
     private boolean enableLifts;
     private Material liftMaterial;
+
     private int maxLoadedCrossbowProjectiles;
+
     private int oreshnikWavesCount;
     private int oreshnikArrowsCount;
     private double oreshnikExplosionPower;
     private int oreshnikWavesDelay;
     private double oreshnikRange;
+
+    private double himarsExplosionPower;
+    private double himarsFireworkSpeed;
+
+    private ItemStack[] gameInventory;
+    private boolean enableGameInventory;
+
+    private long himarsCooldown;
 
     public GameConfig(FileConfiguration config) {
         this.config = config;
@@ -27,19 +42,40 @@ public class GameConfig {
     }
 
     public void load() {
-        gameCenter = config.getVector("gameCenter", new Vector(0, 0, 0));
+        try {
+            gameCenter = config.isVector("gameCenter") ? config.getVector("gameCenter") : new Vector(0, 0, 0);
+        } catch (Exception e) {
+            gameCenter = new Vector(0, 0, 0);
+        }
+
         gameWorld = config.getString("gameWorld", "world");
-        gameRadius = config.getInt("gameRadius", 100);
+        gameRadius = config.getInt("gameRadius", 200);
+
         enableExplosions = config.getBoolean("enableExplosions", true);
         explosionPower = config.getDouble("explosionPower", 2.0);
+
         enableLifts = config.getBoolean("enableLifts", true);
-        liftMaterial = Material.valueOf(config.getString("liftMaterial", "LIGHT_GRAY_CONCRETE"));
+        try {
+            liftMaterial = Material.valueOf(config.getString("liftMaterial", "LIGHT_GRAY_CONCRETE").toUpperCase());
+        } catch (IllegalArgumentException e) {
+            liftMaterial = Material.LIGHT_GRAY_CONCRETE;
+        }
+
         maxLoadedCrossbowProjectiles = config.getInt("maxLoadedCrossbowProjectiles", 1);
+
         oreshnikWavesCount = config.getInt("oreshnikWavesCount", 5);
         oreshnikArrowsCount = config.getInt("oreshnikArrowsCount", 50);
         oreshnikExplosionPower = config.getDouble("oreshnikExplosionPower", 3.0);
         oreshnikWavesDelay = config.getInt("oreshnikWavesDelay", 20);
         oreshnikRange = config.getDouble("oreshnikRange", 0.5);
+
+        himarsExplosionPower = config.getDouble("himarsExplosionPower", 4.0);
+        himarsFireworkSpeed = config.getDouble("himarsFireworkSpeed", 1.5);
+
+        enableGameInventory = config.getBoolean("enableGameInventory", false);
+        gameInventory = config.getList("gameInventory", new ArrayList<ItemStack>()).toArray(new ItemStack[0]);
+
+        himarsCooldown = config.getLong("himarsCooldown", 10);
     }
 
     public void save() {
@@ -56,6 +92,11 @@ public class GameConfig {
         config.set("oreshnikExplosionPower", oreshnikExplosionPower);
         config.set("oreshnikWavesDelay", oreshnikWavesDelay);
         config.set("oreshnikRange", oreshnikRange);
+        config.set("himarsExplosionPower", himarsExplosionPower);
+        config.set("himarsFireworkSpeed", himarsFireworkSpeed);
+        config.set("enableGameInventory", enableGameInventory);
+        config.set("gameInventory", gameInventory);
+        config.set("himarsCooldown", himarsCooldown);
     }
 
     public Vector getGameCenter() {
@@ -108,6 +149,26 @@ public class GameConfig {
 
     public double getOreshnikRange() {
         return oreshnikRange;
+    }
+
+    public double getHimarsExplosionPower() {
+        return himarsExplosionPower;
+    }
+
+    public double getHimarsFireworkSpeed() {
+        return himarsFireworkSpeed;
+    }
+
+    public ItemStack[] getGameInventory() {
+        return gameInventory;
+    }
+
+    public boolean isEnableGameInventory() {
+        return enableGameInventory;
+    }
+
+    public long getHimarsCooldown() {
+        return himarsCooldown;
     }
 
     public void setGameCenter(Vector gameCenter) {
@@ -167,6 +228,31 @@ public class GameConfig {
 
     public void setOreshnikRange(double oreshnikRange) {
         this.oreshnikRange = oreshnikRange;
+        save();
+    }
+
+    public void setHimarsExplosionPower(double himarsExplosionPower) {
+        this.himarsExplosionPower = himarsExplosionPower;
+        save();
+    }
+
+    public void setHimarsFireworkSpeed(double himarsFireworkSpeed) {
+        this.himarsFireworkSpeed = himarsFireworkSpeed;
+        save();
+    }
+
+    public void setGameInventory(ItemStack[] gameInventory) {
+        this.gameInventory = gameInventory;
+        save();
+    }
+
+    public void setEnableGameInventory(boolean enableGameInventory) {
+        this.enableGameInventory = enableGameInventory;
+        save();
+    }
+
+    public void setHimarsCooldown(long himarsCooldown) {
+        this.himarsCooldown = himarsCooldown;
         save();
     }
 }

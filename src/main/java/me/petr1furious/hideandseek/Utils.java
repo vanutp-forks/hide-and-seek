@@ -3,10 +3,10 @@ package me.petr1furious.hideandseek;
 import org.bukkit.Location;
 import org.bukkit.damage.DamageSource;
 import org.bukkit.damage.DamageType;
-import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Damageable;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
 
 public class Utils {
     static public boolean playerPassable(Location location) {
@@ -72,6 +72,7 @@ public class Utils {
             var damageSource = DamageSource.builder(DamageType.EXPLOSION);
             if (attacker != null) {
                 damageSource.withCausingEntity(attacker);
+                damageSource.withDirectEntity(attacker);
             }
             damageable.damage(1000, damageSource.build());
         } else {
@@ -79,9 +80,9 @@ public class Utils {
         }
     }
 
-    static public Entity getEntityShooter(Arrow arrow) {
-        if (arrow.getShooter() instanceof Entity) {
-            return (Entity) arrow.getShooter();
+    static public Entity getEntityShooter(Projectile projectile) {
+        if (projectile.getShooter() instanceof Entity) {
+            return (Entity) projectile.getShooter();
         }
         return null;
     }
