@@ -13,84 +13,121 @@ import java.util.Map;
 
 public class LiftHandler {
 
-    private int liftCheckHeight = 4;
+    private int liftCheckHeight = 6;
 
-    private int minLiftMaterialCount = 2;
+    private int minLiftWallRatioA = 3;
+    private int minLiftWallRatioB = 4;
 
     private Map<Player, Long> lastSoundTime = new HashMap<>();
 
-    private char[][] liftPattern = {
-        { '?', 'x', 'x', '?' },
-        { 'x', 'o', 'o', 'x' },
-        { 'x', 'o', 'o', 'x' },
-        { '?', 'x', 'x', '?' }
+    private char[][][] liftPatterns = {
+        {
+            { '?', 'x', 'x', '?' },
+            { 'x', 'o', 'o', 'x' },
+            { 'x', 'o', 'o', 'x' },
+            { '?', 'x', 'x', '?' }
+        },
+        {
+            { '?', '?', 'x', '?', '?' },
+            { '?', 'x', 'o', 'x', '?' },
+            { 'x', 'o', 'o', 'o', 'x' },
+            { '?', 'x', 'o', 'x', '?' },
+            { '?', '?', 'x', '?', '?' }
+        }
     };
 
     private int checkLiftSide(Location location, Material liftMaterial, boolean directionUp) {
-        int liftMaterialCount = 0;
+        int liftWallCount = 0;
+        boolean haveLiftMaterial = false;
+
         for (int i = 0; i < liftCheckHeight; i++) {
-            Location blockLocation;
+            Location blockLocation = location.clone();
             if (directionUp) {
-                blockLocation = location.clone().add(0, i, 0);
+                blockLocation.add(0, i, 0);
             } else {
-                blockLocation = location.clone().add(0, -i, 0);
+                blockLocation.add(0, -i, 0);
             }
+
             Block block = blockLocation.getBlock();
-            if (block.getType() == liftMaterial) {
-                liftMaterialCount++;
-            } else if (block.getType() != Material.AIR) {
-                return -1;
+            if (block.getType() != Material.AIR) {
+                liftWallCount++;
+                if (block.getType() == liftMaterial) {
+                    haveLiftMaterial = true;
+                }
             }
         }
-        return liftMaterialCount;
+
+        if (!haveLiftMaterial && liftWallCount != 0) {
+            return -1;
+        }
+
+        return liftWallCount;
     }
 
-    private boolean isPlayerInLiftAtPosition(Location location, Material liftMaterial, int x, int z) {
-        for (int i = 0; i < liftPattern.length; i++) {
-            for (int j = 0; j < liftPattern[i].length; j++) {
-                if (liftPattern[i][j] == '?') {
-                    continue;
-                }
+    private boolean isPlayerInLiftAtPosition(Location location, Material liftMaterial, int x, int z, int patternIndex) {
+        for (boolean directionUp : new boolean[] { false, true }) {
+            boolean good = true;
 
-                boolean good = false;
-                for (boolean directionUp : new boolean[] { false, true }) {
-                    int liftMaterialCount = checkLiftSide(location.clone().add(i - x, 0, j - z), liftMaterial,
-                        directionUp);
-                    if (liftMaterialCount == -1) {
+            int totalLiftWallCount = 0;
+            int wallPatternCount = 0;
+
+            for (int i = 0; i < liftPatterns[patternIndex].length; i++) {
+                for (int j = 0; j < liftPatterns[patternIndex][i].length; j++) {
+                    if (liftPatterns[patternIndex][i][j] == '?') {
                         continue;
                     }
 
-                    if (liftPattern[i][j] == 'o' && liftMaterialCount != 0) {
-                        continue;
+                    int liftWallCount = checkLiftSide(location.clone().add(i - x, 0, j - z), liftMaterial, directionUp);
+                    if (liftWallCount == -1) {
+                        good = false;
+                        break;
                     }
 
-                    if (liftPattern[i][j] == 'x' && liftMaterialCount < minLiftMaterialCount) {
-                        continue;
+                    if (liftPatterns[patternIndex][i][j] == 'o' && liftWallCount != 0) {
+                        good = false;
+                        break;
                     }
 
-                    good = true;
-                    break;
+                    if (liftPatterns[patternIndex][i][j] == 'x') {
+                        totalLiftWallCount += liftWallCount;
+                        wallPatternCount++;
+                    }
                 }
 
                 if (!good) {
-                    return false;
+                    break;
+                }
+            }
+
+            if (good
+                && totalLiftWallCount * minLiftWallRatioB >= (wallPatternCount * liftCheckHeight) * minLiftWallRatioA) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private boolean isPlayerInLift(Player player, Material liftMaterial, int patternIndex) {
+        Location playerLocation = player.getLocation();
+
+        for (int i = 0; i < liftPatterns[patternIndex].length; i++) {
+            for (int j = 0; j < liftPatterns[patternIndex][i].length; j++) {
+                if (liftPatterns[patternIndex][i][j] == 'o') {
+                    if (isPlayerInLiftAtPosition(playerLocation, liftMaterial, i, j, patternIndex)) {
+                        return true;
+                    }
                 }
             }
         }
 
-        return true;
+        return false;
     }
 
-    private boolean isPlayerInLift(Player player, Material liftMaterial) {
-        Location playerLocation = player.getLocation();
-
-        for (int i = 0; i < liftPattern.length; i++) {
-            for (int j = 0; j < liftPattern[i].length; j++) {
-                if (liftPattern[i][j] == 'o') {
-                    if (isPlayerInLiftAtPosition(playerLocation, liftMaterial, i, j)) {
-                        return true;
-                    }
-                }
+    private boolean isPlayerInAnyLift(Player player, Material liftMaterial) {
+        for (int i = 0; i < liftPatterns.length; i++) {
+            if (isPlayerInLift(player, liftMaterial, i)) {
+                return true;
             }
         }
 
@@ -110,7 +147,7 @@ public class LiftHandler {
             return;
         }
 
-        boolean playerInLift = isPlayerInLift(player, liftMaterial);
+        boolean playerInLift = isPlayerInAnyLift(player, liftMaterial);
         player.setAllowFlight(playerInLift);
         player.setFlying(playerInLift);
 
@@ -119,7 +156,7 @@ public class LiftHandler {
             long lastTime = lastSoundTime.getOrDefault(player, 0L);
             if (currentTime - lastTime >= 1000) {
                 for (Player onlinePlayer : Bukkit.getOnlinePlayers()) {
-                    onlinePlayer.playSound(player.getLocation(), Sound.BLOCK_PISTON_EXTEND, 1.0f, 1.0f);
+                    onlinePlayer.playSound(player.getLocation(), Sound.BLOCK_PISTON_EXTEND, 4.0f, 1.0f);
                 }
                 lastSoundTime.put(player, currentTime);
             }
