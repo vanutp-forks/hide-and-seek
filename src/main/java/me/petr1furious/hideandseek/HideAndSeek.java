@@ -20,7 +20,6 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.FireworkMeta;
-import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -57,7 +56,11 @@ public class HideAndSeek extends JavaPlugin implements Listener {
 
     private int updateDistancesTaskID;
 
+    private final Map<Projectile, Location> himarsProjectiles = new HashMap<>();
+
     private final Map<Player, Long> himarsCooldown = new HashMap<>();
+
+    private final Map<Player, Long> oreshnikCooldown = new HashMap<>();
 
     @Override
     public void onEnable() {
@@ -226,9 +229,8 @@ public class HideAndSeek extends JavaPlugin implements Listener {
             @EventHandler
             public void onProjectileHit(ProjectileHitEvent event) {
                 Projectile projectile = event.getEntity();
-                var shooter = Utils.getEntityShooter(projectile);
 
-                event.setCancelled(true);
+                var shooter = Utils.getEntityShooter(projectile);
 
                 Location location;
                 if (event.getHitBlock() != null && event.getHitBlockFace() != null) {
@@ -238,8 +240,7 @@ public class HideAndSeek extends JavaPlugin implements Listener {
                     Block hitBlock = event.getHitBlock();
                     BlockFace hitFace = event.getHitBlockFace();
                     Vector planeNormal = hitFace.getDirection();
-                    Vector planePoint = hitBlock.getLocation().toVector()
-                        .add(new Vector(0.5, 0.5, 0.5))
+                    Vector planePoint = hitBlock.getLocation().toVector().add(new Vector(0.5, 0.5, 0.5))
                         .add(planeNormal.multiply(0.501));
 
                     double denominator = planeNormal.dot(projectileDirection);
@@ -256,13 +257,8 @@ public class HideAndSeek extends JavaPlugin implements Listener {
                     location = projectile.getLocation();
                 }
 
-                if (projectile instanceof Arrow arrow) {
-                    handleProjectileHitLocation(arrow, location, shooter, event.getHitEntity());
-                } else if (projectile instanceof Firework firework) {
-                    if (firework.hasMetadata("himars_firework")) {
-                        Utils.spawnExplosion(location, gameConfig.getHimarsExplosionPower(), shooter);
-                        firework.remove();
-                    }
+                if (handleProjectileHitLocation(projectile, location, shooter, event.getHitEntity())) {
+                    event.setCancelled(true);
                 }
             }
 
@@ -270,6 +266,34 @@ public class HideAndSeek extends JavaPlugin implements Listener {
             public void onPlayerInteract(org.bukkit.event.player.PlayerInteractEvent event) {
                 Items.interactWithInfiniteCrossbow(event, gameConfig.getMaxLoadedCrossbowProjectiles());
                 Items.interactWithHimars(event);
+
+                if (Items.isRightClick(event)) {
+                    if (Items.checkForOreshnikItem(event.getItem())
+                        && event.getPlayer().getGameMode() != GameMode.SPECTATOR) {
+                        event.setCancelled(true);
+
+                        if (isOreshnikOnCooldown(event.getPlayer())) {
+                            return;
+                        }
+                        setOreshnikCooldown(event.getPlayer());
+
+                        Block targetBlock = event.getPlayer().getTargetBlockExact(256);
+                        if (targetBlock != null) {
+                            Location targetLocation = targetBlock.getLocation();
+                            spawnArrowWaves(targetLocation, gameConfig.getOreshnikWavesCount(),
+                                gameConfig.getOreshnikArrowsCount());
+
+                            if (event.getPlayer().getGameMode() != GameMode.CREATIVE && event.getHand() != null) {
+                                ItemStack item = event.getPlayer().getInventory().getItem(event.getHand());
+                                if (item != null) {
+                                    item.setAmount(item.getAmount() - 1);
+                                }
+                            }
+                        } else {
+                            event.getPlayer().sendActionBar(Component.text("Too far").color(NamedTextColor.RED));
+                        }
+                    }
+                }
             }
 
             @EventHandler
@@ -289,10 +313,6 @@ public class HideAndSeek extends JavaPlugin implements Listener {
                             arrow.getPersistentDataContainer().set(Items.ARROW_TYPE_KEY, PersistentDataType.STRING,
                                 Items.INFINITE_TAG);
                         }
-                        if (cmd == 2) {
-                            arrow.getPersistentDataContainer().set(Items.ARROW_TYPE_KEY, PersistentDataType.STRING,
-                                Items.ORESHNIK_INITIAL_TAG);
-                        }
                     }
                     if (event.getProjectile() instanceof Firework firework) {
                         if (cmd == 3) {
@@ -305,12 +325,15 @@ public class HideAndSeek extends JavaPlugin implements Listener {
                             }
                             setCooldown(shooter);
                             firework.setVelocity(firework.getVelocity().multiply(gameConfig.getHimarsFireworkSpeed()));
-                            firework.setMetadata("himars_firework", new FixedMetadataValue(HideAndSeek.this, true));
-                            
+                            firework.getPersistentDataContainer().set(Items.ARROW_TYPE_KEY, PersistentDataType.STRING,
+                                Items.HIMARS_TAG);
+
                             FireworkMeta meta = firework.getFireworkMeta();
                             int desiredPower = 20;
                             meta.setPower(desiredPower);
                             firework.setFireworkMeta(meta);
+
+                            himarsProjectiles.put(firework, shooter.getLocation());
                         }
                     }
                 }
@@ -318,16 +341,31 @@ public class HideAndSeek extends JavaPlugin implements Listener {
         }, this);
     }
 
-    void handleProjectileHitLocation(Arrow arrow, Location location, Entity shooter, Entity target) {
-        String arrowType = arrow.getPersistentDataContainer().get(Items.ARROW_TYPE_KEY, PersistentDataType.STRING);
+    private float calculateExplosionPower(Location startLocation, Location endLocation) {
+        float explosionPower = (float) startLocation.distance(endLocation) / gameConfig.getExplosionIncreasePerBlocks();
+        if (explosionPower > 10.f) {
+            explosionPower = 10.f;
+        }
+        return explosionPower;
+    }
 
-        if (Items.INFINITE_TAG.equals(arrowType) || Items.ORESHNIK_TAG.equals(arrowType)
-            || Items.HIMARS_TAG.equals(arrowType)) {
+    boolean handleProjectileHitLocation(Projectile projectile, Location location, Entity shooter, Entity target) {
+        String projectileType = projectile.getPersistentDataContainer().get(Items.ARROW_TYPE_KEY,
+            PersistentDataType.STRING);
+
+        if (Items.INFINITE_TAG.equals(projectileType) || Items.ORESHNIK_TAG.equals(projectileType)
+            || Items.HIMARS_TAG.equals(projectileType)) {
             if (gameConfig.isEnableExplosions()) {
-                if (Items.ORESHNIK_TAG.equals(arrowType)) {
+                if (Items.ORESHNIK_TAG.equals(projectileType)) {
                     Utils.spawnExplosion(location, gameConfig.getOreshnikExplosionPower(), shooter);
-                } else if (Items.HIMARS_TAG.equals(arrowType)) {
-                    Utils.spawnExplosion(location, gameConfig.getHimarsExplosionPower(), shooter);
+                } else if (Items.HIMARS_TAG.equals(projectileType)) {
+                    Location startLocation = himarsProjectiles.get(projectile);
+                    float explosionPower = 1.f;
+                    if (startLocation != null) {
+                        explosionPower = calculateExplosionPower(startLocation, location);
+                        himarsProjectiles.remove(projectile);
+                    }
+                    Utils.spawnExplosion(location, explosionPower, shooter);
                 } else {
                     Utils.spawnExplosion(location, gameConfig.getExplosionPower(), shooter);
                 }
@@ -335,15 +373,13 @@ public class HideAndSeek extends JavaPlugin implements Listener {
                     Utils.killWithExplosion(target, shooter);
                 }
 
-                arrow.remove();
+                projectile.remove();
+
+                return true;
             }
         }
 
-        if (Items.ORESHNIK_INITIAL_TAG.equals(arrowType)) {
-            spawnArrowWaves(location, gameConfig.getOreshnikWavesCount(), gameConfig.getOreshnikArrowsCount());
-
-            arrow.remove();
-        }
+        return false;
     }
 
     private boolean isOnCooldown(Player player) {
@@ -437,6 +473,21 @@ public class HideAndSeek extends JavaPlugin implements Listener {
                 return location;
             }
         }
+    }
+
+    private boolean isOreshnikOnCooldown(Player player) {
+        if (!oreshnikCooldown.containsKey(player)) {
+            return false;
+        }
+        long lastUsed = oreshnikCooldown.get(player);
+        return (System.currentTimeMillis() - lastUsed) < 1000;
+    }
+
+    private void setOreshnikCooldown(Player player) {
+        oreshnikCooldown.put(player, System.currentTimeMillis());
+        Bukkit.getScheduler().runTaskLater(this, () -> {
+            oreshnikCooldown.remove(player);
+        }, 20);
     }
 
     public void spawnArrowWaves(Location center, int wavesCount, int arrowsCount) {

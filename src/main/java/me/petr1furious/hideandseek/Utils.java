@@ -70,10 +70,6 @@ public class Utils {
         if (target instanceof Damageable) {
             var damageable = (Damageable) target;
             var damageSource = DamageSource.builder(DamageType.EXPLOSION);
-            if (attacker != null) {
-                damageSource.withCausingEntity(attacker);
-                damageSource.withDirectEntity(attacker);
-            }
             damageable.damage(1000, damageSource.build());
         } else {
             target.remove();

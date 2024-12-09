@@ -28,13 +28,13 @@ public class GameConfig {
     private int oreshnikWavesDelay;
     private double oreshnikRange;
 
-    private double himarsExplosionPower;
     private double himarsFireworkSpeed;
 
     private ItemStack[] gameInventory;
     private boolean enableGameInventory;
 
     private long himarsCooldown;
+    private int explosionIncreasePerBlocks;
 
     public GameConfig(FileConfiguration config) {
         this.config = config;
@@ -69,13 +69,13 @@ public class GameConfig {
         oreshnikWavesDelay = config.getInt("oreshnikWavesDelay", 20);
         oreshnikRange = config.getDouble("oreshnikRange", 0.5);
 
-        himarsExplosionPower = config.getDouble("himarsExplosionPower", 4.0);
+        himarsCooldown = config.getLong("himarsCooldown", 10);
+        explosionIncreasePerBlocks = config.getInt("explosionIncreasePerBlocks", 15);
         himarsFireworkSpeed = config.getDouble("himarsFireworkSpeed", 1.5);
 
         enableGameInventory = config.getBoolean("enableGameInventory", false);
         gameInventory = config.getList("gameInventory", new ArrayList<ItemStack>()).toArray(new ItemStack[0]);
 
-        himarsCooldown = config.getLong("himarsCooldown", 10);
     }
 
     public void save() {
@@ -92,11 +92,11 @@ public class GameConfig {
         config.set("oreshnikExplosionPower", oreshnikExplosionPower);
         config.set("oreshnikWavesDelay", oreshnikWavesDelay);
         config.set("oreshnikRange", oreshnikRange);
-        config.set("himarsExplosionPower", himarsExplosionPower);
+        config.set("himarsCooldown", himarsCooldown);
+        config.set("explosionIncreasePerBlocks", explosionIncreasePerBlocks);
         config.set("himarsFireworkSpeed", himarsFireworkSpeed);
         config.set("enableGameInventory", enableGameInventory);
         config.set("gameInventory", gameInventory);
-        config.set("himarsCooldown", himarsCooldown);
     }
 
     public Vector getGameCenter() {
@@ -151,8 +151,12 @@ public class GameConfig {
         return oreshnikRange;
     }
 
-    public double getHimarsExplosionPower() {
-        return himarsExplosionPower;
+    public long getHimarsCooldown() {
+        return himarsCooldown;
+    }
+
+    public int getExplosionIncreasePerBlocks() {
+        return explosionIncreasePerBlocks;
     }
 
     public double getHimarsFireworkSpeed() {
@@ -165,10 +169,6 @@ public class GameConfig {
 
     public boolean isEnableGameInventory() {
         return enableGameInventory;
-    }
-
-    public long getHimarsCooldown() {
-        return himarsCooldown;
     }
 
     public void setGameCenter(Vector gameCenter) {
@@ -231,8 +231,13 @@ public class GameConfig {
         save();
     }
 
-    public void setHimarsExplosionPower(double himarsExplosionPower) {
-        this.himarsExplosionPower = himarsExplosionPower;
+    public void setHimarsCooldown(long himarsCooldown) {
+        this.himarsCooldown = himarsCooldown;
+        save();
+    }
+
+    public void setExplosionIncreasePerBlocks(int explosionIncreasePerBlocks) {
+        this.explosionIncreasePerBlocks = explosionIncreasePerBlocks;
         save();
     }
 
@@ -248,11 +253,6 @@ public class GameConfig {
 
     public void setEnableGameInventory(boolean enableGameInventory) {
         this.enableGameInventory = enableGameInventory;
-        save();
-    }
-
-    public void setHimarsCooldown(long himarsCooldown) {
-        this.himarsCooldown = himarsCooldown;
         save();
     }
 }

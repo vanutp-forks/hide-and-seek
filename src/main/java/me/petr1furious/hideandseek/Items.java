@@ -17,7 +17,6 @@ public class Items {
     public static NamespacedKey ARROW_TYPE_KEY = new NamespacedKey("hide_and_seek_items", "arrow_type");
 
     public static String INFINITE_TAG = "infinite";
-    public static String ORESHNIK_INITIAL_TAG = "oreshnik_initial";
     public static String ORESHNIK_TAG = "oreshnik";
     public static String HIMARS_TAG = "himars";
 
@@ -26,8 +25,8 @@ public class Items {
         metaLore.add(Component.text("Crossbow with infinite ammo").color(NamedTextColor.GRAY)
             .decoration(TextDecoration.ITALIC, false));
         if (maxProjectiles > 1) {
-            metaLore.add(Component.text("Loaded: " + projectiles + "/" + maxProjectiles)
-                .color(NamedTextColor.GRAY).decoration(TextDecoration.ITALIC, false));
+            metaLore.add(Component.text("Loaded: " + projectiles + "/" + maxProjectiles).color(NamedTextColor.GRAY)
+                .decoration(TextDecoration.ITALIC, false));
         }
         meta.lore(metaLore);
     }
@@ -43,10 +42,10 @@ public class Items {
         return false;
     }
 
-    static boolean checkForOreshnikCrossbow(ItemStack item) {
+    static boolean checkForOreshnikItem(ItemStack item) {
         if (item == null)
             return false;
-        if (item.getType() == Material.CROSSBOW && item.getItemMeta().hasCustomModelData()
+        if (item.getType() == Material.REPEATER && item.getItemMeta().hasCustomModelData()
             && item.getItemMeta().getCustomModelData() == 2) {
             return true;
         }
@@ -66,6 +65,11 @@ public class Items {
     static boolean isLeftClick(PlayerInteractEvent event) {
         return event.getAction() == org.bukkit.event.block.Action.LEFT_CLICK_AIR
             || event.getAction() == org.bukkit.event.block.Action.LEFT_CLICK_BLOCK;
+    }
+
+    static boolean isRightClick(PlayerInteractEvent event) {
+        return event.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_AIR
+            || event.getAction() == org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK;
     }
 
     public static void interactWithInfiniteCrossbow(PlayerInteractEvent event, int maxProjectiles) {
@@ -122,8 +126,7 @@ public class Items {
     public static ItemStack getHimars(double fireworkSpeed) {
         var crossbow = new ItemStack(Material.CROSSBOW);
         var meta = crossbow.getItemMeta();
-        meta.displayName(
-            Component.text("HIMARS").color(NamedTextColor.RED).decoration(TextDecoration.ITALIC, false));
+        meta.displayName(Component.text("HIMARS").color(NamedTextColor.RED).decoration(TextDecoration.ITALIC, false));
         meta.setCustomModelData(3);
         meta.setUnbreakable(true);
         meta.setEnchantmentGlintOverride(true);
@@ -133,15 +136,13 @@ public class Items {
     }
 
     public static ItemStack getOreshnik(int wavesCount, int arrowsCount) {
-        var crossbow = new ItemStack(Material.CROSSBOW);
-        var meta = crossbow.getItemMeta();
+        var repeater = new ItemStack(Material.REPEATER);
+        var meta = repeater.getItemMeta();
         meta.displayName(
             Component.text("ОРЕШНИК").color(NamedTextColor.DARK_PURPLE).decoration(TextDecoration.ITALIC, false));
         meta.setCustomModelData(2);
-        meta.setUnbreakable(true);
         meta.setEnchantmentGlintOverride(true);
-        crossbow.setItemMeta(meta);
-
-        return crossbow;
+        repeater.setItemMeta(meta);
+        return repeater;
     }
 }

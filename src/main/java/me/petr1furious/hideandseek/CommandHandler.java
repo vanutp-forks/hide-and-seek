@@ -58,10 +58,34 @@ public class CommandHandler {
         plugin.addPlayerToGame(target, plugin.getGameTeleport());
     }
 
-    void giveItem(List<Player> players, ItemStack item) {
+    void giveItems(List<Player> players, ItemStack item) {
         for (var player : players) {
             player.getInventory().addItem(item);
         }
+    }
+
+    private ItemStack createItemStack(String item, GameConfig config, int count) {
+        ItemStack itemStack = null;
+
+        switch (item.toLowerCase()) {
+        case "infinite_crossbow":
+            itemStack = Items.getInfiniteCrossbow(config.getMaxLoadedCrossbowProjectiles());
+            break;
+        case "oreshnik":
+            itemStack = Items.getOreshnik(config.getOreshnikWavesCount(), config.getOreshnikArrowsCount());
+            break;
+        case "himars":
+            itemStack = Items.getHimars(config.getHimarsFireworkSpeed());
+            break;
+        default:
+            break;
+        }
+
+        if (itemStack != null) {
+            itemStack.setAmount(count);
+        }
+
+        return itemStack;
     }
 
     void registerCommand(String name) {
@@ -170,26 +194,29 @@ public class CommandHandler {
                                         plugin.getGameConfig().setOreshnikRange(range);
                                         saveGameSettings();
                                         ctx.getSource().getSender()
-                                            .sendMessage(Component.text("Oreshnik set to " + waves + " waves, "
-                                                + arrows + " arrows, " + delay + " wave delay, " + explosionPower
-                                                + " explosion power, " + range + " range").color(NamedTextColor.GREEN));
+                                            .sendMessage(
+                                                Component
+                                                    .text("Oreshnik set to " + waves + " waves, " + arrows + " arrows, "
+                                                        + delay + " wave delay, " + explosionPower
+                                                        + " explosion power, " + range + " range")
+                                                    .color(NamedTextColor.GREEN));
                                         return Command.SINGLE_SUCCESS;
                                     })))))))
                 .then(Commands.literal("sethimars")
-                    .then(Commands.argument("explosionPower", DoubleArgumentType.doubleArg(0.0))
-                        .then(Commands.argument("fireworkSpeed", DoubleArgumentType.doubleArg(0.1, 5.0))
-                            .then(Commands.argument("cooldown (seconds)", IntegerArgumentType.integer(1))
-                                .executes(ctx -> {
-                                    double explosionPower = DoubleArgumentType.getDouble(ctx, "explosionPower");
-                                    double fireworkSpeed = DoubleArgumentType.getDouble(ctx, "fireworkSpeed");
-                                    int cooldown = IntegerArgumentType.getInteger(ctx, "cooldown (seconds)");
-                                    plugin.getGameConfig().setHimarsExplosionPower(explosionPower);
-                                    plugin.getGameConfig().setHimarsFireworkSpeed(fireworkSpeed);
-                                    plugin.getGameConfig().setHimarsCooldown(cooldown);
-                                    ctx.getSource().getSender().sendMessage(
-                                        Component.text("HIMARS settings updated").color(NamedTextColor.GREEN));
-                                    return Command.SINGLE_SUCCESS;
-                                })))))
+                    .then(Commands.argument("explosionIncreasePerBlocks", IntegerArgumentType.integer(1))
+                        .then(Commands.argument("fireworkSpeed", DoubleArgumentType.doubleArg(0.1, 5.0)).then(
+                            Commands.argument("cooldown (seconds)", IntegerArgumentType.integer(1)).executes(ctx -> {
+                                int explosionIncrease = IntegerArgumentType.getInteger(ctx,
+                                    "explosionIncreasePerBlocks");
+                                double fireworkSpeed = DoubleArgumentType.getDouble(ctx, "fireworkSpeed");
+                                int cooldown = IntegerArgumentType.getInteger(ctx, "cooldown (seconds)");
+                                plugin.getGameConfig().setExplosionIncreasePerBlocks(explosionIncrease);
+                                plugin.getGameConfig().setHimarsFireworkSpeed(fireworkSpeed);
+                                plugin.getGameConfig().setHimarsCooldown(cooldown);
+                                ctx.getSource().getSender()
+                                    .sendMessage(Component.text("HIMARS settings updated").color(NamedTextColor.GREEN));
+                                return Command.SINGLE_SUCCESS;
+                            })))))
                 .then(Commands.literal("join").requires(source -> source.getExecutor() instanceof Player)
                     .executes(ctx -> {
                         var player = (Player) ctx.getSource().getExecutor();
@@ -210,23 +237,26 @@ public class CommandHandler {
                         builder.suggest("oreshnik");
                         builder.suggest("himars");
                         return builder.buildFuture();
-                    }).executes(ctx -> {
+                    }).then(Commands.argument("count", IntegerArgumentType.integer(1)).executes(ctx -> {
                         String item = StringArgumentType.getString(ctx, "item");
                         List<Player> players = ctx.getArgument("players", PlayerSelectorArgumentResolver.class)
                             .resolve(ctx.getSource());
-                        GameConfig config = plugin.getGameConfig();
-                        if (item.equals("infinite_crossbow")) {
-                            giveItem(players, Items.getInfiniteCrossbow(config.getMaxLoadedCrossbowProjectiles()));
-                        }
-                        if (item.equals("oreshnik")) {
-                            giveItem(players,
-                                Items.getOreshnik(config.getOreshnikWavesCount(), config.getOreshnikArrowsCount()));
-                        }
-                        if (item.equals("himars")) {
-                            giveItem(players, Items.getHimars(config.getHimarsFireworkSpeed()));
-                        }
+                        int count = IntegerArgumentType.getInteger(ctx, "count");
+                        ItemStack items = createItemStack(item, plugin.getGameConfig(), count);
+                        giveItems(players, items);
+
                         ctx.getSource().getSender()
-                            .sendMessage(Component.text("Given item to players").color(NamedTextColor.GREEN));
+                            .sendMessage(Component.text("Given the items to players").color(NamedTextColor.GREEN));
+                        return Command.SINGLE_SUCCESS;
+                    })).executes(ctx -> {
+                        String item = StringArgumentType.getString(ctx, "item");
+                        List<Player> players = ctx.getArgument("players", PlayerSelectorArgumentResolver.class)
+                            .resolve(ctx.getSource());
+                        ItemStack items = createItemStack(item, plugin.getGameConfig(), 1);
+                        giveItems(players, items);
+
+                        ctx.getSource().getSender()
+                            .sendMessage(Component.text("Given the item to players").color(NamedTextColor.GREEN));
                         return Command.SINGLE_SUCCESS;
                     }))))
                 .then(Commands.literal("reload").executes(ctx -> {
@@ -235,15 +265,14 @@ public class CommandHandler {
                     ctx.getSource().getSender()
                         .sendMessage(Component.text("Config reloaded").color(NamedTextColor.GREEN));
                     return Command.SINGLE_SUCCESS;
-                }))
-                .then(Commands.literal("setinventory")
+                })).then(Commands.literal("setinventory")
                     .then(Commands.argument("enable", BoolArgumentType.bool()).executes(ctx -> {
                         boolean enableGameInventory = BoolArgumentType.getBool(ctx, "enable");
                         plugin.getGameConfig().setEnableGameInventory(enableGameInventory);
                         saveGameSettings();
-                        ctx.getSource().getSender().sendMessage(Component
-                            .text("Game inventory " + (enableGameInventory ? "enabled" : "disabled"))
-                            .color(NamedTextColor.GREEN));
+                        ctx.getSource().getSender().sendMessage(
+                            Component.text("Game inventory " + (enableGameInventory ? "enabled" : "disabled"))
+                                .color(NamedTextColor.GREEN));
                         return Command.SINGLE_SUCCESS;
                     })))
                 .then(Commands.literal("inventory")
