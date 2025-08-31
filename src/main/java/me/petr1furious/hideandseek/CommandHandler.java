@@ -41,7 +41,7 @@ public class CommandHandler {
             sender.sendMessage(Component.text("Game is already running").color(NamedTextColor.RED));
             return;
         }
-        plugin.startGame();
+        plugin.startGame(null);
     }
 
     void joinGameCommand(CommandSender sender, Player target) {
@@ -124,6 +124,24 @@ public class CommandHandler {
                         saveGameSettings();
                         ctx.getSource().getSender().sendMessage(
                             Component.text("Game radius set to " + gameRadius).color(NamedTextColor.GREEN));
+                        return Command.SINGLE_SUCCESS;
+                    })))
+                .then(Commands.literal("setdistanceupdateinterval")
+                    .then(Commands.argument("interval", IntegerArgumentType.integer(1)).executes(ctx -> {
+                        int interval = IntegerArgumentType.getInteger(ctx, "interval");
+                        plugin.getGameConfig().setDistanceUpdateIntervalTicks(interval * 20);
+                        saveGameSettings();
+                        ctx.getSource().getSender().sendMessage(Component
+                            .text("Distance update interval set to " + interval + "s").color(NamedTextColor.GREEN));
+                        return Command.SINGLE_SUCCESS;
+                    })))
+                .then(Commands.literal("setdistancegranularity")
+                    .then(Commands.argument("granularity", IntegerArgumentType.integer(1)).executes(ctx -> {
+                        int granularity = IntegerArgumentType.getInteger(ctx, "granularity");
+                        plugin.getGameConfig().setDistanceGranularity(granularity);
+                        saveGameSettings();
+                        ctx.getSource().getSender().sendMessage(
+                            Component.text("Distance granularity set to " + granularity).color(NamedTextColor.GREEN));
                         return Command.SINGLE_SUCCESS;
                     })))
                 .then(Commands.literal("set")

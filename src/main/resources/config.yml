@@ -6,3 +6,5 @@ gameCenter:
 gameRadius: 100
 enableLifts: false
 liftMaterial: "GRAY_CONCRETE"
+distanceUpdateIntervalTicks: 80
+distanceGranularity: 50

@@ -22,6 +22,9 @@ public class GameConfig {
     private String gameWorld;
     private int gameRadius;
 
+    private int distanceUpdateIntervalTicks;
+    private int distanceGranularity;
+
     private boolean enableLifts;
     private Material liftMaterial;
 
@@ -60,6 +63,13 @@ public class GameConfig {
         gameWorld = config.getString("gameWorld", "world");
         gameRadius = config.getInt("gameRadius", 200);
 
+        distanceUpdateIntervalTicks = config.getInt("distanceUpdateIntervalTicks", 80);
+        if (distanceUpdateIntervalTicks < 1)
+            distanceUpdateIntervalTicks = 80;
+        distanceGranularity = config.getInt("distanceGranularity", 50);
+        if (distanceGranularity < 1)
+            distanceGranularity = 50;
+
         enableLifts = config.getBoolean("enableLifts", true);
         try {
             liftMaterial = Material.valueOf(config.getString("liftMaterial", "LIGHT_GRAY_CONCRETE").toUpperCase());
@@ -82,6 +92,8 @@ public class GameConfig {
         config.set("gameCenter", gameCenter);
         config.set("gameWorld", gameWorld);
         config.set("gameRadius", gameRadius);
+    config.set("distanceUpdateIntervalTicks", distanceUpdateIntervalTicks);
+    config.set("distanceGranularity", distanceGranularity);
         config.set("enableLifts", enableLifts);
         config.set("liftMaterial", liftMaterial.toString());
         var weaponsRoot = config.getConfigurationSection("weapons");
@@ -112,6 +124,14 @@ public class GameConfig {
 
     public int getGameRadius() {
         return gameRadius;
+    }
+
+    public int getDistanceUpdateIntervalTicks() {
+        return distanceUpdateIntervalTicks;
+    }
+
+    public int getDistanceGranularity() {
+        return distanceGranularity;
     }
 
     public boolean isEnableLifts() {
@@ -154,6 +174,16 @@ public class GameConfig {
 
     public void setGameRadius(int gameRadius) {
         this.gameRadius = gameRadius;
+        save();
+    }
+
+    public void setDistanceUpdateIntervalTicks(int distanceUpdateIntervalTicks) {
+        this.distanceUpdateIntervalTicks = Math.max(1, distanceUpdateIntervalTicks);
+        save();
+    }
+
+    public void setDistanceGranularity(int distanceGranularity) {
+        this.distanceGranularity = Math.max(1, distanceGranularity);
         save();
     }
 

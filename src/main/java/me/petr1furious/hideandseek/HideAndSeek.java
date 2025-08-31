@@ -37,6 +37,7 @@ import java.util.ArrayList;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 public class HideAndSeek extends JavaPlugin implements Listener {
 
@@ -53,12 +54,16 @@ public class HideAndSeek extends JavaPlugin implements Listener {
     private LiftHandler liftHandler;
 
     private int updateDistancesTaskID;
+    private int ticksUntilNextDistanceUpdate = 0;
 
     private InfiniteCrossbowWeapon infiniteCrossbowWeapon;
     private OreshnikWeapon oreshnikWeapon;
     private HimarsWeapon himarsWeapon;
 
     private final Set<UUID> gamePlayers = new HashSet<>();
+
+    LegacyComponentSerializer legacySerializer = LegacyComponentSerializer
+        .legacy(LegacyComponentSerializer.SECTION_CHAR);
 
     @Override
     public void onEnable() {
@@ -118,10 +123,6 @@ public class HideAndSeek extends JavaPlugin implements Listener {
         }
     }
 
-    void startGame() {
-        startGame(null);
-    }
-
     void startGame(List<Player> participants) {
         gameStatus = GameStatus.RUNNING;
         checkingGameEnd = false;
@@ -140,16 +141,23 @@ public class HideAndSeek extends JavaPlugin implements Listener {
         }
 
         for (Player player : chosen) {
-            if (player.getGameMode() == GameMode.SURVIVAL) {
-                addPlayerToGame(player);
-                gamePlayers.add(player.getUniqueId());
-            }
+            addPlayerToGame(player);
+            gamePlayers.add(player.getUniqueId());
         }
 
         getServer().getScheduler().cancelTask(updateDistancesTaskID);
+        ticksUntilNextDistanceUpdate = gameConfig.getDistanceUpdateIntervalTicks();
+
+        updateDistances();
         updateDistancesTaskID = getServer().getScheduler().scheduleSyncRepeatingTask(this, () -> {
-            updateDistances();
-        }, 0, 80);
+            if (gameStatus != GameStatus.RUNNING)
+                return;
+            ticksUntilNextDistanceUpdate -= 20;
+            updateCountdown();
+            if (ticksUntilNextDistanceUpdate <= 0) {
+                updateDistances();
+            }
+        }, 20, 20);
     }
 
     void stopGame() {
@@ -183,6 +191,16 @@ public class HideAndSeek extends JavaPlugin implements Listener {
 
     void endGame() {
         gameStatus = GameStatus.ENDED;
+
+        var manager = Bukkit.getScoreboardManager();
+        if (manager != null) {
+            for (UUID uuid : gamePlayers) {
+                Player p = getServer().getPlayer(uuid);
+                if (p != null) {
+                    p.setScoreboard(manager.getMainScoreboard());
+                }
+            }
+        }
     }
 
     void checkGameEnd() {
@@ -316,6 +334,8 @@ public class HideAndSeek extends JavaPlugin implements Listener {
             return;
         }
 
+        ticksUntilNextDistanceUpdate = gameConfig.getDistanceUpdateIntervalTicks();
+
         ScoreboardManager manager = Bukkit.getScoreboardManager();
 
         for (Player player1 : getServer().getOnlinePlayers()) {
@@ -339,19 +359,52 @@ public class HideAndSeek extends JavaPlugin implements Listener {
                     continue;
 
                 double distance = player1.getLocation().distance(player2.getLocation());
-                int roundedDistance = (int) (Math.round(distance / 50.0) * 50);
-                String distanceRange = getDistanceRange(roundedDistance);
-                playerObjective
-                    .getScore(Component.text().append(Component.text(distanceRange, NamedTextColor.GOLD))
-                        .append(Component.text(" " + player2.getName(), NamedTextColor.AQUA)).build().content())
-                    .setScore(roundedDistance);
+                int gran = Math.max(1, gameConfig.getDistanceGranularity());
+                int roundedDistance = ((int) (distance + 0.5) / gran) * gran;
+                String distanceRange = getDistanceRange(roundedDistance, gran);
+
+                String serialized = legacySerializer
+                    .serialize(Component.text().append(Component.text(distanceRange, NamedTextColor.GOLD))
+                        .append(Component.text(" " + player2.getName(), NamedTextColor.AQUA)).build());
+                playerObjective.getScore(serialized).setScore(roundedDistance);
             }
+
+            addOrUpdateCountdownLine(playerObjective, player1);
         }
     }
 
-    String getDistanceRange(int distance) {
-        int lowerBound = (distance / 50) * 50;
-        int upperBound = lowerBound + 50;
+    void updateCountdown() {
+        for (Player player : getServer().getOnlinePlayers()) {
+            if (!isPlayerInGame(player))
+                continue;
+            Objective obj = player.getScoreboard().getObjective(player.getName());
+            if (obj == null)
+                continue; // will be created on next full update
+
+            addOrUpdateCountdownLine(obj, player);
+        }
+    }
+
+    void addOrUpdateCountdownLine(Objective objective, Player player) {
+        int secondsLeft = Math.max(0, ticksUntilNextDistanceUpdate / 20);
+        String countdownLabel = legacySerializer
+            .serialize(Component.text().append(Component.text("Refresh: ", NamedTextColor.GRAY))
+                .append(Component.text(secondsLeft + "s", NamedTextColor.GREEN)).build());
+
+        for (String entry : player.getScoreboard().getEntries()) {
+            if (entry.contains("Refresh:") && !entry.equals(countdownLabel)) {
+                player.getScoreboard().resetScores(entry);
+            }
+        }
+        objective.getScore(countdownLabel).setScore(-1);
+    }
+
+    String getDistanceRange(int distance, int granularity) {
+        int lowerBound = (distance / granularity) * granularity;
+        int upperBound = lowerBound + granularity;
+        if (lowerBound == upperBound) {
+            return Integer.toString(lowerBound);
+        }
         return lowerBound + "-" + upperBound;
     }
 
