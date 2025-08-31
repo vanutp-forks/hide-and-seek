@@ -24,8 +24,16 @@ import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.ScoreboardManager;
 import org.bukkit.util.Vector;
 
+import me.petr1furious.hideandseek.weapons.HimarsWeapon;
+import me.petr1furious.hideandseek.weapons.InfiniteCrossbowWeapon;
+import me.petr1furious.hideandseek.weapons.OreshnikWeapon;
+
 import java.util.Random;
 import java.util.List;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.UUID;
+import java.util.ArrayList;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -37,7 +45,6 @@ public class HideAndSeek extends JavaPlugin implements Listener {
     private Random random = new Random();
 
     private GameStatus gameStatus = GameStatus.NOT_STARTED;
-    private boolean gameTeleport = true;
 
     private boolean checkingGameEnd = false;
 
@@ -47,9 +54,11 @@ public class HideAndSeek extends JavaPlugin implements Listener {
 
     private int updateDistancesTaskID;
 
-    private me.petr1furious.hideandseek.weapons.InfiniteCrossbowWeapon infiniteCrossbowWeapon;
-    private me.petr1furious.hideandseek.weapons.OreshnikWeapon oreshnikWeapon;
-    private me.petr1furious.hideandseek.weapons.HimarsWeapon himarsWeapon;
+    private InfiniteCrossbowWeapon infiniteCrossbowWeapon;
+    private OreshnikWeapon oreshnikWeapon;
+    private HimarsWeapon himarsWeapon;
+
+    private final Set<UUID> gamePlayers = new HashSet<>();
 
     @Override
     public void onEnable() {
@@ -58,9 +67,9 @@ public class HideAndSeek extends JavaPlugin implements Listener {
         commandHandler = new CommandHandler(this);
         commandHandler.registerCommands();
         liftHandler = new LiftHandler();
-        infiniteCrossbowWeapon = new me.petr1furious.hideandseek.weapons.InfiniteCrossbowWeapon(gameConfig);
-        oreshnikWeapon = new me.petr1furious.hideandseek.weapons.OreshnikWeapon(gameConfig);
-        himarsWeapon = new me.petr1furious.hideandseek.weapons.HimarsWeapon(gameConfig);
+        infiniteCrossbowWeapon = new InfiniteCrossbowWeapon(gameConfig);
+        oreshnikWeapon = new OreshnikWeapon(gameConfig);
+        himarsWeapon = new HimarsWeapon(gameConfig);
         registerEvents();
     }
 
@@ -77,29 +86,23 @@ public class HideAndSeek extends JavaPlugin implements Listener {
     }
 
     boolean isPlayerInGame(Player player) {
-        return gameStatus == GameStatus.RUNNING && player.getGameMode() != GameMode.SPECTATOR
-            && player.getGameMode() != GameMode.CREATIVE;
+        return gameStatus == GameStatus.RUNNING && gamePlayers.contains(player.getUniqueId())
+            && player.getGameMode() != GameMode.SPECTATOR && player.getGameMode() != GameMode.CREATIVE
+            && player.getWorld().getName().equals(gameConfig.getGameWorld());
     }
 
-    boolean getGameTeleport() {
-        return gameTeleport;
-    }
-
-    void addPlayerToGame(Player player, boolean teleport) {
-        if (teleport) {
-            boolean success = false;
-            for (int i = 0; i < 100; i++) {
-                Location location = Utils.getFirstSolidBlock(getRandomLocationInSphere());
-                if (location != null) {
-                    player.teleport(location.add(0.5, 0, 0.5));
-                    success = true;
-                    break;
-                }
+    void addPlayerToGame(Player player) {
+        gamePlayers.add(player.getUniqueId());
+        boolean success = false;
+        for (int i = 0; i < 100; i++) {
+            Location location = Utils.getFirstSolidBlock(getRandomLocationInSphere());
+            if (location != null) {
+                player.teleport(location.add(0.5, 0, 0.5));
+                success = true;
+                break;
             }
-            if (!success) {
-                Utils.teleportPlayerOnBlock(player);
-            }
-        } else {
+        }
+        if (!success) {
             Utils.teleportPlayerOnBlock(player);
         }
         player.setGameMode(GameMode.SURVIVAL);
@@ -115,15 +118,31 @@ public class HideAndSeek extends JavaPlugin implements Listener {
         }
     }
 
-    void startGame(boolean teleport) {
+    void startGame() {
+        startGame(null);
+    }
+
+    void startGame(List<Player> participants) {
         gameStatus = GameStatus.RUNNING;
-        gameTeleport = teleport;
         checkingGameEnd = false;
         getServer().sendMessage(Component.text("Starting game").color(NamedTextColor.GREEN));
 
-        for (var player : getServer().getOnlinePlayers()) {
+        gamePlayers.clear();
+
+        List<Player> chosen;
+        if (participants == null || participants.isEmpty()) {
+            chosen = new ArrayList<>();
+            for (var p : getServer().getOnlinePlayers()) {
+                chosen.add(p);
+            }
+        } else {
+            chosen = participants;
+        }
+
+        for (Player player : chosen) {
             if (player.getGameMode() == GameMode.SURVIVAL) {
-                addPlayerToGame(player, teleport);
+                addPlayerToGame(player);
+                gamePlayers.add(player.getUniqueId());
             }
         }
 
@@ -153,9 +172,13 @@ public class HideAndSeek extends JavaPlugin implements Listener {
 
         getServer().getScheduler().cancelTask(updateDistancesTaskID);
 
-        for (var player : getServer().getOnlinePlayers()) {
-            resetPlayer(player);
+        for (UUID uuid : gamePlayers) {
+            Player player = getServer().getPlayer(uuid);
+            if (player != null) {
+                resetPlayer(player);
+            }
         }
+        gamePlayers.clear();
     }
 
     void endGame() {
@@ -212,7 +235,6 @@ public class HideAndSeek extends JavaPlugin implements Listener {
                 if (gameStatus != GameStatus.RUNNING) {
                     return;
                 }
-
                 getServer().getScheduler().scheduleSyncDelayedTask(HideAndSeek.this, () -> {
                     updateDistances();
                 }, 1);
@@ -297,6 +319,8 @@ public class HideAndSeek extends JavaPlugin implements Listener {
         ScoreboardManager manager = Bukkit.getScoreboardManager();
 
         for (Player player1 : getServer().getOnlinePlayers()) {
+            if (!gamePlayers.contains(player1.getUniqueId()))
+                continue;
             Scoreboard scoreboard = manager.getNewScoreboard();
             player1.setScoreboard(scoreboard);
             for (String entry : scoreboard.getEntries()) {
@@ -363,15 +387,15 @@ public class HideAndSeek extends JavaPlugin implements Listener {
         }
     }
 
-    public me.petr1furious.hideandseek.weapons.InfiniteCrossbowWeapon getInfiniteCrossbowWeapon() {
+    public InfiniteCrossbowWeapon getInfiniteCrossbowWeapon() {
         return infiniteCrossbowWeapon;
     }
 
-    public me.petr1furious.hideandseek.weapons.OreshnikWeapon getOreshnikWeapon() {
+    public OreshnikWeapon getOreshnikWeapon() {
         return oreshnikWeapon;
     }
 
-    public me.petr1furious.hideandseek.weapons.HimarsWeapon getHimarsWeapon() {
+    public HimarsWeapon getHimarsWeapon() {
         return himarsWeapon;
     }
 

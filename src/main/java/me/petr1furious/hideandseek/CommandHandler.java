@@ -36,26 +36,21 @@ public class CommandHandler {
         plugin.saveConfig();
     }
 
-    void startGameCommand(CommandSender sender, boolean teleport) {
+    void startGameCommand(CommandSender sender) {
         if (plugin.getGameStatus() == GameStatus.RUNNING) {
             sender.sendMessage(Component.text("Game is already running").color(NamedTextColor.RED));
             return;
         }
-        plugin.startGame(teleport);
+        plugin.startGame();
     }
 
     void joinGameCommand(CommandSender sender, Player target) {
-        if (plugin.isPlayerInGame(target)) {
-            sender.sendMessage(Component.text(target.getName()).color(NamedTextColor.AQUA)
-                .append(Component.text(" is already in the game").color(NamedTextColor.RED)));
-            return;
-        }
         if (plugin.getGameStatus() == GameStatus.NOT_STARTED) {
             sender.sendMessage(Component.text("Game is not running").color(NamedTextColor.RED));
             return;
         }
         target.sendMessage(Component.text("You joined the game").color(NamedTextColor.GREEN));
-        plugin.addPlayerToGame(target, plugin.getGameTeleport());
+        plugin.addPlayerToGame(target);
     }
 
     void giveItems(List<Player> players, ItemStack item) {
@@ -83,11 +78,17 @@ public class CommandHandler {
             var rootBuilder = Commands.literal(name)
                 .requires(source -> source.getSender().hasPermission("hideandseek.command"))
                 .then(Commands.literal("start").executes(ctx -> {
-                    startGameCommand(ctx.getSource().getSender(), true);
+                    startGameCommand(ctx.getSource().getSender());
                     return Command.SINGLE_SUCCESS;
-                }).then(Commands.argument("teleport", BoolArgumentType.bool()).executes(ctx -> {
-                    boolean teleport = BoolArgumentType.getBool(ctx, "teleport");
-                    startGameCommand(ctx.getSource().getSender(), teleport);
+                }).then(Commands.argument("targets", ArgumentTypes.players()).executes(ctx -> {
+                    if (plugin.getGameStatus() == GameStatus.RUNNING) {
+                        ctx.getSource().getSender()
+                            .sendMessage(Component.text("Game is already running").color(NamedTextColor.RED));
+                        return Command.SINGLE_SUCCESS;
+                    }
+                    List<Player> targets = ctx.getArgument("targets", PlayerSelectorArgumentResolver.class)
+                        .resolve(ctx.getSource());
+                    plugin.startGame(targets);
                     return Command.SINGLE_SUCCESS;
                 }))).then(Commands.literal("stop").executes(ctx -> {
                     if (plugin.getGameStatus() == GameStatus.NOT_STARTED) {
@@ -103,9 +104,8 @@ public class CommandHandler {
                             .sendMessage(Component.text("Game is not running").color(NamedTextColor.RED));
                         return Command.SINGLE_SUCCESS;
                     }
-                    boolean teleport = plugin.getGameTeleport();
                     plugin.stopGame();
-                    startGameCommand(ctx.getSource().getSender(), teleport);
+                    startGameCommand(ctx.getSource().getSender());
                     return Command.SINGLE_SUCCESS;
                 })).then(Commands.literal("setcenter").requires(source -> source.getExecutor() instanceof Player)
                     .executes(ctx -> {
