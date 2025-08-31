@@ -17,6 +17,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.projectiles.ProjectileSource;
 import org.bukkit.util.Vector;
 
 import java.util.*;
@@ -50,7 +51,7 @@ public class OreshnikWeapon {
             return;
         }
         spawnArrowWaves(targetBlock.getLocation(), config.getOreshnik().getWavesCount(),
-            config.getOreshnik().getArrowsCount());
+            config.getOreshnik().getArrowsCount(), player);
         if (player.getGameMode() != GameMode.CREATIVE && event.getHand() != null) {
             ItemStack item = player.getInventory().getItem(event.getHand());
             if (item != null)
@@ -79,7 +80,7 @@ public class OreshnikWeapon {
             () -> cooldown.remove(player), 20);
     }
 
-    private void spawnArrowWaves(Location center, int wavesCount, int arrowsCount) {
+    private void spawnArrowWaves(Location center, int wavesCount, int arrowsCount, ProjectileSource shooter) {
         double spawnHeight = 500;
         for (int wave = 0; wave < wavesCount; wave++) {
             int delay = wave * config.getOreshnik().getWavesDelay();
@@ -98,6 +99,7 @@ public class OreshnikWeapon {
                         spawnedArrow.setVelocity(spawnedArrow.getVelocity().add(new Vector(randomX, -10.0, randomZ)));
                         spawnedArrow.setPickupStatus(AbstractArrow.PickupStatus.DISALLOWED);
                         spawnedArrow.setFireTicks(Integer.MAX_VALUE);
+                        spawnedArrow.setShooter(shooter);
                     });
                 }
             }, delay);

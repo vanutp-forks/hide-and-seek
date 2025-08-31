@@ -5,10 +5,10 @@ import java.util.List;
 import org.bukkit.configuration.ConfigurationSection;
 
 public class OreshnikConfig implements WeaponConfig {
-    private int wavesCount = 5;
-    private int arrowsCount = 50;
-    private double explosionPower = 3.0;
-    private int wavesDelay = 20; // ticks
+    private int wavesCount = 6;
+    private int arrowsCount = 100;
+    private double explosionPower = 1.8;
+    private int wavesDelay = 13; // ticks
     private double range = 0.5; // radius range for arrows scatter
 
     @Override

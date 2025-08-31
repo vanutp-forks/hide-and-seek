@@ -59,17 +59,13 @@ public class Utils {
     }
 
     static public void spawnExplosion(Location location, double explosionPower, Entity entity) {
-        if (entity == null) {
-            location.getWorld().createExplosion(location, (float) explosionPower, false, true);
-        } else {
-            location.getWorld().createExplosion(location, (float) explosionPower, false, true);
-        }
+        location.getWorld().createExplosion(entity, location, (float) explosionPower, false, true, false);
     }
 
     static public void killWithExplosion(Entity target, Entity attacker) {
         if (target instanceof Damageable) {
             var damageable = (Damageable) target;
-            var damageSource = DamageSource.builder(DamageType.EXPLOSION);
+            var damageSource = DamageSource.builder(DamageType.EXPLOSION).withCausingEntity(attacker);
             damageable.damage(1000, damageSource.build());
         } else {
             target.remove();
