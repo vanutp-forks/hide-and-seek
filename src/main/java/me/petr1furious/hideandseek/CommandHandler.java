@@ -8,7 +8,6 @@ import org.bukkit.inventory.ItemStack;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.BoolArgumentType;
-import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 
@@ -16,6 +15,7 @@ import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.command.brigadier.argument.ArgumentTypes;
 import io.papermc.paper.command.brigadier.argument.resolvers.selector.PlayerSelectorArgumentResolver;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
+import me.petr1furious.hideandseek.weapons.WeaponConfig;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 
@@ -65,34 +65,22 @@ public class CommandHandler {
     }
 
     private ItemStack createItemStack(String item, GameConfig config, int count) {
-        ItemStack itemStack = null;
-
-        switch (item.toLowerCase()) {
-        case "infinite_crossbow":
-            itemStack = Items.getInfiniteCrossbow(config.getMaxLoadedCrossbowProjectiles());
-            break;
-        case "oreshnik":
-            itemStack = Items.getOreshnik(config.getOreshnikWavesCount(), config.getOreshnikArrowsCount());
-            break;
-        case "himars":
-            itemStack = Items.getHimars(config.getHimarsFireworkSpeed());
-            break;
-        default:
-            break;
+        String key = item.toLowerCase();
+        if (key.equals("infinite_crossbow")) {
+            return plugin.getInfiniteCrossbowWeapon().createItem(count);
+        } else if (key.equals("oreshnik")) {
+            return plugin.getOreshnikWeapon().createItem(count);
+        } else if (key.equals("himars")) {
+            return plugin.getHimarsWeapon().createItem(count);
         }
-
-        if (itemStack != null) {
-            itemStack.setAmount(count);
-        }
-
-        return itemStack;
+        return null;
     }
 
     void registerCommand(String name) {
         var manager = plugin.getLifecycleManager();
         manager.registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             var commands = event.registrar();
-            var hideAndSeekCommand = Commands.literal(name)
+            var rootBuilder = Commands.literal(name)
                 .requires(source -> source.getSender().hasPermission("hideandseek.command"))
                 .then(Commands.literal("start").executes(ctx -> {
                     startGameCommand(ctx.getSource().getSender(), true);
@@ -138,25 +126,49 @@ public class CommandHandler {
                             Component.text("Game radius set to " + gameRadius).color(NamedTextColor.GREEN));
                         return Command.SINGLE_SUCCESS;
                     })))
-                .then(Commands.literal("setexplosions")
-                    .then(Commands.argument("enable", BoolArgumentType.bool()).executes(ctx -> {
-                        boolean enableExplosions = BoolArgumentType.getBool(ctx, "enable");
-                        plugin.getGameConfig().setEnableExplosions(enableExplosions);
-                        saveGameSettings();
-                        ctx.getSource().getSender()
-                            .sendMessage(Component.text("Explosions " + (enableExplosions ? "enabled" : "disabled"))
-                                .color(NamedTextColor.GREEN));
+                .then(Commands.literal("set")
+                    .then(Commands.argument("weapon", StringArgumentType.string()).suggests((ctx, builder) -> {
+                        builder.suggest("infinite_crossbow");
+                        builder.suggest("ic");
+                        builder.suggest("oreshnik");
+                        builder.suggest("o");
+                        builder.suggest("himars");
+                        builder.suggest("h");
+                        return builder.buildFuture();
+                    }).then(Commands.argument("property", StringArgumentType.string()).suggests((ctx, builder) -> {
+                        String weapon = StringArgumentType.getString(ctx, "weapon");
+                        WeaponConfig wc = plugin.getGameConfig().getWeaponConfig(weapon);
+                        if (wc != null) {
+                            for (String p : wc.getPropertyNames())
+                                builder.suggest(p);
+                        }
+                        return builder.buildFuture();
+                    }).then(Commands.argument("value", StringArgumentType.greedyString()).executes(ctx -> {
+                        String weapon = StringArgumentType.getString(ctx, "weapon");
+                        String property = StringArgumentType.getString(ctx, "property");
+                        String value = StringArgumentType.getString(ctx, "value");
+                        WeaponConfig wc = plugin.getGameConfig().getWeaponConfig(weapon);
+                        if (wc == null) {
+                            ctx.getSource().getSender()
+                                .sendMessage(Component.text("Unknown weapon").color(NamedTextColor.RED));
+                            return Command.SINGLE_SUCCESS;
+                        }
+                        WeaponConfig.WeaponSetResult result = wc.setProperty(property, value);
+                        if (result == WeaponConfig.WeaponSetResult.SUCCESS) {
+                            plugin.getGameConfig().save();
+                            plugin.saveConfig();
+                            Object newVal = wc.getPropertyValue(property);
+                            ctx.getSource().getSender().sendMessage(Component
+                                .text("Set " + weapon + "." + property + " = " + newVal).color(NamedTextColor.GREEN));
+                        } else if (result == WeaponConfig.WeaponSetResult.UNKNOWN_PROPERTY) {
+                            ctx.getSource().getSender()
+                                .sendMessage(Component.text("Unknown property").color(NamedTextColor.RED));
+                        } else if (result == WeaponConfig.WeaponSetResult.PARSE_ERROR) {
+                            ctx.getSource().getSender()
+                                .sendMessage(Component.text("Invalid value").color(NamedTextColor.RED));
+                        }
                         return Command.SINGLE_SUCCESS;
-                    })))
-                .then(Commands.literal("setexplosionpower")
-                    .then(Commands.argument("power", DoubleArgumentType.doubleArg()).executes(ctx -> {
-                        double explosionPower = DoubleArgumentType.getDouble(ctx, "power");
-                        plugin.getGameConfig().setExplosionPower(explosionPower);
-                        saveGameSettings();
-                        ctx.getSource().getSender().sendMessage(
-                            Component.text("Explosion power set to " + explosionPower).color(NamedTextColor.GREEN));
-                        return Command.SINGLE_SUCCESS;
-                    })))
+                    })))))
                 .then(Commands.literal("setlifts")
                     .then(Commands.argument("enable", BoolArgumentType.bool()).executes(ctx -> {
                         boolean enableLifts = BoolArgumentType.getBool(ctx, "enable");
@@ -166,57 +178,6 @@ public class CommandHandler {
                             .text("Lifts " + (enableLifts ? "enabled" : "disabled")).color(NamedTextColor.GREEN));
                         return Command.SINGLE_SUCCESS;
                     })))
-                .then(Commands.literal("setcrossbowprojectiles")
-                    .then(Commands.argument("max", IntegerArgumentType.integer(1)).executes(ctx -> {
-                        int maxLoadedCrossbowProjectiles = IntegerArgumentType.getInteger(ctx, "max");
-                        plugin.getGameConfig().setMaxLoadedCrossbowProjectiles(maxLoadedCrossbowProjectiles);
-                        saveGameSettings();
-                        ctx.getSource().getSender().sendMessage(
-                            Component.text("Max loaded crossbow projectiles set to " + maxLoadedCrossbowProjectiles)
-                                .color(NamedTextColor.GREEN));
-                        return Command.SINGLE_SUCCESS;
-                    })))
-                .then(Commands.literal("setoreshnik")
-                    .then(Commands.argument("waves", IntegerArgumentType.integer(1))
-                        .then(Commands.argument("arrows", IntegerArgumentType.integer(1))
-                            .then(Commands.argument("delay", IntegerArgumentType.integer(1))
-                                .then(Commands.argument("explosionpower", DoubleArgumentType.doubleArg())
-                                    .then(Commands.argument("range", DoubleArgumentType.doubleArg()).executes(ctx -> {
-                                        int waves = IntegerArgumentType.getInteger(ctx, "waves");
-                                        int arrows = IntegerArgumentType.getInteger(ctx, "arrows");
-                                        int delay = IntegerArgumentType.getInteger(ctx, "delay");
-                                        double explosionPower = DoubleArgumentType.getDouble(ctx, "explosionpower");
-                                        double range = DoubleArgumentType.getDouble(ctx, "range");
-                                        plugin.getGameConfig().setOreshnikWavesCount(waves);
-                                        plugin.getGameConfig().setOreshnikArrowsCount(arrows);
-                                        plugin.getGameConfig().setOreshnikWavesDelay(delay);
-                                        plugin.getGameConfig().setOreshnikExplosionPower(explosionPower);
-                                        plugin.getGameConfig().setOreshnikRange(range);
-                                        saveGameSettings();
-                                        ctx.getSource().getSender()
-                                            .sendMessage(
-                                                Component
-                                                    .text("Oreshnik set to " + waves + " waves, " + arrows + " arrows, "
-                                                        + delay + " wave delay, " + explosionPower
-                                                        + " explosion power, " + range + " range")
-                                                    .color(NamedTextColor.GREEN));
-                                        return Command.SINGLE_SUCCESS;
-                                    })))))))
-                .then(Commands.literal("sethimars")
-                    .then(Commands.argument("explosionIncreasePerBlocks", IntegerArgumentType.integer(1))
-                        .then(Commands.argument("fireworkSpeed", DoubleArgumentType.doubleArg(0.1, 5.0)).then(
-                            Commands.argument("cooldown (seconds)", IntegerArgumentType.integer(1)).executes(ctx -> {
-                                int explosionIncrease = IntegerArgumentType.getInteger(ctx,
-                                    "explosionIncreasePerBlocks");
-                                double fireworkSpeed = DoubleArgumentType.getDouble(ctx, "fireworkSpeed");
-                                int cooldown = IntegerArgumentType.getInteger(ctx, "cooldown (seconds)");
-                                plugin.getGameConfig().setExplosionIncreasePerBlocks(explosionIncrease);
-                                plugin.getGameConfig().setHimarsFireworkSpeed(fireworkSpeed);
-                                plugin.getGameConfig().setHimarsCooldown(cooldown);
-                                ctx.getSource().getSender()
-                                    .sendMessage(Component.text("HIMARS settings updated").color(NamedTextColor.GREEN));
-                                return Command.SINGLE_SUCCESS;
-                            })))))
                 .then(Commands.literal("join").requires(source -> source.getExecutor() instanceof Player)
                     .executes(ctx -> {
                         var player = (Player) ctx.getSource().getExecutor();
@@ -293,6 +254,7 @@ public class CommandHandler {
                         .executes(ctx -> {
                             Player player = (Player) ctx.getSource().getExecutor();
                             plugin.saveGameInventory(player);
+                            plugin.saveConfig();
                             player.sendMessage(Component.text("Game inventory saved").color(NamedTextColor.GREEN));
                             return Command.SINGLE_SUCCESS;
                         }))
@@ -304,7 +266,7 @@ public class CommandHandler {
                             return Command.SINGLE_SUCCESS;
                         })))
                 .build();
-            commands.register(hideAndSeekCommand);
+            commands.register(rootBuilder);
         });
     }
 }

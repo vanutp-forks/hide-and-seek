@@ -7,10 +7,7 @@ import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
-import org.bukkit.entity.AbstractArrow;
-import org.bukkit.entity.Arrow;
 import org.bukkit.entity.Entity;
-import org.bukkit.entity.Firework;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
@@ -19,10 +16,7 @@ import org.bukkit.event.entity.EntityShootBowEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.FireworkMeta;
-import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scoreboard.Criteria;
 import org.bukkit.scoreboard.DisplaySlot;
 import org.bukkit.scoreboard.Objective;
@@ -30,14 +24,11 @@ import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.ScoreboardManager;
 import org.bukkit.util.Vector;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Random;
 import java.util.List;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import net.md_5.bungee.api.ChatColor;
 
 public class HideAndSeek extends JavaPlugin implements Listener {
 
@@ -56,11 +47,9 @@ public class HideAndSeek extends JavaPlugin implements Listener {
 
     private int updateDistancesTaskID;
 
-    private final Map<Projectile, Location> himarsProjectiles = new HashMap<>();
-
-    private final Map<Player, Long> himarsCooldown = new HashMap<>();
-
-    private final Map<Player, Long> oreshnikCooldown = new HashMap<>();
+    private me.petr1furious.hideandseek.weapons.InfiniteCrossbowWeapon infiniteCrossbowWeapon;
+    private me.petr1furious.hideandseek.weapons.OreshnikWeapon oreshnikWeapon;
+    private me.petr1furious.hideandseek.weapons.HimarsWeapon himarsWeapon;
 
     @Override
     public void onEnable() {
@@ -69,6 +58,9 @@ public class HideAndSeek extends JavaPlugin implements Listener {
         commandHandler = new CommandHandler(this);
         commandHandler.registerCommands();
         liftHandler = new LiftHandler();
+        infiniteCrossbowWeapon = new me.petr1furious.hideandseek.weapons.InfiniteCrossbowWeapon(gameConfig);
+        oreshnikWeapon = new me.petr1furious.hideandseek.weapons.OreshnikWeapon(gameConfig);
+        himarsWeapon = new me.petr1furious.hideandseek.weapons.HimarsWeapon(gameConfig);
         registerEvents();
     }
 
@@ -264,36 +256,9 @@ public class HideAndSeek extends JavaPlugin implements Listener {
 
             @EventHandler
             public void onPlayerInteract(org.bukkit.event.player.PlayerInteractEvent event) {
-                Items.interactWithInfiniteCrossbow(event, gameConfig.getMaxLoadedCrossbowProjectiles());
-                Items.interactWithHimars(event);
-
-                if (Items.isRightClick(event)) {
-                    if (Items.checkForOreshnikItem(event.getItem())
-                        && event.getPlayer().getGameMode() != GameMode.SPECTATOR) {
-                        event.setCancelled(true);
-
-                        if (isOreshnikOnCooldown(event.getPlayer())) {
-                            return;
-                        }
-                        setOreshnikCooldown(event.getPlayer());
-
-                        Block targetBlock = event.getPlayer().getTargetBlockExact(256);
-                        if (targetBlock != null) {
-                            Location targetLocation = targetBlock.getLocation();
-                            spawnArrowWaves(targetLocation, gameConfig.getOreshnikWavesCount(),
-                                gameConfig.getOreshnikArrowsCount());
-
-                            if (event.getPlayer().getGameMode() != GameMode.CREATIVE && event.getHand() != null) {
-                                ItemStack item = event.getPlayer().getInventory().getItem(event.getHand());
-                                if (item != null) {
-                                    item.setAmount(item.getAmount() - 1);
-                                }
-                            }
-                        } else {
-                            event.getPlayer().sendActionBar(Component.text("Too far").color(NamedTextColor.RED));
-                        }
-                    }
-                }
+                infiniteCrossbowWeapon.onPlayerInteract(event);
+                himarsWeapon.onPlayerInteract(event);
+                oreshnikWeapon.onPlayerInteract(event);
             }
 
             @EventHandler
@@ -306,101 +271,22 @@ public class HideAndSeek extends JavaPlugin implements Listener {
                 if (event.getBow() == null)
                     return;
                 ItemStack bow = event.getBow();
-                if (bow.getItemMeta().hasCustomModelData() && bow.getType() == Material.CROSSBOW) {
-                    int cmd = bow.getItemMeta().getCustomModelData();
-                    if (event.getProjectile() instanceof Arrow arrow) {
-                        if (cmd == 1) {
-                            arrow.getPersistentDataContainer().set(Items.ARROW_TYPE_KEY, PersistentDataType.STRING,
-                                Items.INFINITE_TAG);
-                        }
-                    }
-                    if (event.getProjectile() instanceof Firework firework) {
-                        if (cmd == 3) {
-                            Player shooter = (Player) event.getEntity();
-                            if (isOnCooldown(shooter)) {
-                                shooter
-                                    .sendActionBar(Component.text("HIMARS is on cooldown!").color(NamedTextColor.RED));
-                                event.setCancelled(true);
-                                return;
-                            }
-                            setCooldown(shooter);
-                            firework.setVelocity(firework.getVelocity().multiply(gameConfig.getHimarsFireworkSpeed()));
-                            firework.getPersistentDataContainer().set(Items.ARROW_TYPE_KEY, PersistentDataType.STRING,
-                                Items.HIMARS_TAG);
-
-                            FireworkMeta meta = firework.getFireworkMeta();
-                            int desiredPower = 20;
-                            meta.setPower(desiredPower);
-                            firework.setFireworkMeta(meta);
-
-                            himarsProjectiles.put(firework, shooter.getLocation());
-                        }
-                    }
+                if (bow.getItemMeta().hasCustomModelDataComponent() && bow.getType() == Material.CROSSBOW) {
+                    infiniteCrossbowWeapon.onBowShoot(event);
+                    himarsWeapon.onBowShoot(event);
                 }
             }
         }, this);
     }
 
-    private float calculateExplosionPower(Location startLocation, Location endLocation) {
-        float explosionPower = (float) startLocation.distance(endLocation) / gameConfig.getExplosionIncreasePerBlocks();
-        if (explosionPower > 10.f) {
-            explosionPower = 10.f;
-        }
-        return explosionPower;
-    }
-
     boolean handleProjectileHitLocation(Projectile projectile, Location location, Entity shooter, Entity target) {
-        String projectileType = projectile.getPersistentDataContainer().get(Items.ARROW_TYPE_KEY,
-            PersistentDataType.STRING);
-
-        if (Items.INFINITE_TAG.equals(projectileType) || Items.ORESHNIK_TAG.equals(projectileType)
-            || Items.HIMARS_TAG.equals(projectileType)) {
-            if (gameConfig.isEnableExplosions()) {
-                if (Items.ORESHNIK_TAG.equals(projectileType)) {
-                    Utils.spawnExplosion(location, gameConfig.getOreshnikExplosionPower(), shooter);
-                } else if (Items.HIMARS_TAG.equals(projectileType)) {
-                    Location startLocation = himarsProjectiles.get(projectile);
-                    float explosionPower = 1.f;
-                    if (startLocation != null) {
-                        explosionPower = calculateExplosionPower(startLocation, location);
-                        himarsProjectiles.remove(projectile);
-                    }
-                    Utils.spawnExplosion(location, explosionPower, shooter);
-                } else {
-                    Utils.spawnExplosion(location, gameConfig.getExplosionPower(), shooter);
-                }
-                if (target != null) {
-                    Utils.killWithExplosion(target, shooter);
-                }
-
-                projectile.remove();
-
-                return true;
-            }
-        }
-
+        if (infiniteCrossbowWeapon.handleProjectileImpact(projectile, location, shooter, target))
+            return true;
+        if (oreshnikWeapon.handleProjectileImpact(projectile, location, shooter, target))
+            return true;
+        if (himarsWeapon.handleProjectileImpact(projectile, location, shooter, target))
+            return true;
         return false;
-    }
-
-    private boolean isOnCooldown(Player player) {
-        if (player.getGameMode() != GameMode.SURVIVAL) {
-            return false;
-        }
-        if (!himarsCooldown.containsKey(player)) {
-            return false;
-        }
-        long lastUsed = himarsCooldown.get(player);
-        return (System.currentTimeMillis() - lastUsed) < gameConfig.getHimarsCooldown() * 1000;
-    }
-
-    private void setCooldown(Player player) {
-        himarsCooldown.put(player, System.currentTimeMillis());
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                himarsCooldown.remove(player);
-            }
-        }.runTaskLater(this, gameConfig.getHimarsCooldown() * 20);
     }
 
     void updateDistances() {
@@ -431,7 +317,9 @@ public class HideAndSeek extends JavaPlugin implements Listener {
                 double distance = player1.getLocation().distance(player2.getLocation());
                 int roundedDistance = (int) (Math.round(distance / 50.0) * 50);
                 String distanceRange = getDistanceRange(roundedDistance);
-                playerObjective.getScore(ChatColor.GOLD + distanceRange + ChatColor.AQUA + " " + player2.getName())
+                playerObjective
+                    .getScore(Component.text().append(Component.text(distanceRange, NamedTextColor.GOLD))
+                        .append(Component.text(" " + player2.getName(), NamedTextColor.AQUA)).build().content())
                     .setScore(roundedDistance);
             }
         }
@@ -475,47 +363,16 @@ public class HideAndSeek extends JavaPlugin implements Listener {
         }
     }
 
-    private boolean isOreshnikOnCooldown(Player player) {
-        if (!oreshnikCooldown.containsKey(player)) {
-            return false;
-        }
-        long lastUsed = oreshnikCooldown.get(player);
-        return (System.currentTimeMillis() - lastUsed) < 1000;
+    public me.petr1furious.hideandseek.weapons.InfiniteCrossbowWeapon getInfiniteCrossbowWeapon() {
+        return infiniteCrossbowWeapon;
     }
 
-    private void setOreshnikCooldown(Player player) {
-        oreshnikCooldown.put(player, System.currentTimeMillis());
-        Bukkit.getScheduler().runTaskLater(this, () -> {
-            oreshnikCooldown.remove(player);
-        }, 20);
+    public me.petr1furious.hideandseek.weapons.OreshnikWeapon getOreshnikWeapon() {
+        return oreshnikWeapon;
     }
 
-    public void spawnArrowWaves(Location center, int wavesCount, int arrowsCount) {
-        double spawnHeight = 500;
-
-        for (int wave = 0; wave < wavesCount; wave++) {
-            Bukkit.getScheduler().runTaskLater(this, () -> {
-                for (int i = 0; i < arrowsCount; i++) {
-                    Location arrowLoc = center.clone().add(0, spawnHeight, 0);
-                    arrowLoc.getWorld().spawn(arrowLoc, Arrow.class, spawnedArrow -> {
-                        spawnedArrow.getPersistentDataContainer().set(Items.ARROW_TYPE_KEY, PersistentDataType.STRING,
-                            "oreshnik");
-
-                        double oreshnikRange = gameConfig.getOreshnikRange();
-                        double randomX;
-                        double randomZ;
-                        do {
-                            randomX = (random.nextDouble() * 2 - 1) * oreshnikRange;
-                            randomZ = (random.nextDouble() * 2 - 1) * oreshnikRange;
-                        } while (randomX * randomX + randomZ * randomZ > oreshnikRange * oreshnikRange);
-                        spawnedArrow.setVelocity(
-                            spawnedArrow.getVelocity().add(new org.bukkit.util.Vector(randomX, -10.0, randomZ)));
-                        spawnedArrow.setPickupStatus(AbstractArrow.PickupStatus.DISALLOWED);
-                        spawnedArrow.setFireTicks(Integer.MAX_VALUE);
-                    });
-                }
-            }, wave * gameConfig.getOreshnikWavesDelay());
-        }
+    public me.petr1furious.hideandseek.weapons.HimarsWeapon getHimarsWeapon() {
+        return himarsWeapon;
     }
 
     public void saveGameInventory(Player player) {
