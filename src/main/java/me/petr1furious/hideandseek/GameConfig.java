@@ -14,6 +14,7 @@ import me.petr1furious.hideandseek.weapons.HimarsConfig;
 import me.petr1furious.hideandseek.weapons.InfiniteCrossbowConfig;
 import me.petr1furious.hideandseek.weapons.OreshnikConfig;
 import me.petr1furious.hideandseek.weapons.WeaponConfig;
+import me.petr1furious.hideandseek.weapons.LocatorConfig;
 
 public class GameConfig {
     FileConfiguration config;
@@ -34,6 +35,7 @@ public class GameConfig {
     private final InfiniteCrossbowConfig infiniteCrossbow = new InfiniteCrossbowConfig();
     private final OreshnikConfig oreshnik = new OreshnikConfig();
     private final HimarsConfig himars = new HimarsConfig();
+    private final LocatorConfig locator = new LocatorConfig();
 
     private final Map<String, WeaponConfig> weaponConfigIndex = new HashMap<>();
 
@@ -51,6 +53,8 @@ public class GameConfig {
         weaponConfigIndex.put("o", oreshnik);
         weaponConfigIndex.put("himars", himars);
         weaponConfigIndex.put("h", himars);
+        weaponConfigIndex.put("locator", locator);
+        weaponConfigIndex.put("l", locator);
     }
 
     public void load() {
@@ -82,6 +86,7 @@ public class GameConfig {
         infiniteCrossbow.load(weaponsRoot.getConfigurationSection("infinite_crossbow"));
         oreshnik.load(weaponsRoot.getConfigurationSection("oreshnik"));
         himars.load(weaponsRoot.getConfigurationSection("himars"));
+        locator.load(weaponsRoot.getConfigurationSection("locator"));
 
         enableGameInventory = config.getBoolean("enableGameInventory", false);
         gameInventory = config.getList("gameInventory", new ArrayList<ItemStack>()).toArray(new ItemStack[0]);
@@ -92,8 +97,8 @@ public class GameConfig {
         config.set("gameCenter", gameCenter);
         config.set("gameWorld", gameWorld);
         config.set("gameRadius", gameRadius);
-    config.set("distanceUpdateIntervalTicks", distanceUpdateIntervalTicks);
-    config.set("distanceGranularity", distanceGranularity);
+        config.set("distanceUpdateIntervalTicks", distanceUpdateIntervalTicks);
+        config.set("distanceGranularity", distanceGranularity);
         config.set("enableLifts", enableLifts);
         config.set("liftMaterial", liftMaterial.toString());
         var weaponsRoot = config.getConfigurationSection("weapons");
@@ -102,6 +107,7 @@ public class GameConfig {
         infiniteCrossbow.save(getOrCreate(weaponsRoot, "infinite_crossbow"));
         oreshnik.save(getOrCreate(weaponsRoot, "oreshnik"));
         himars.save(getOrCreate(weaponsRoot, "himars"));
+        locator.save(getOrCreate(weaponsRoot, "locator"));
         config.set("enableGameInventory", enableGameInventory);
         config.set("gameInventory", gameInventory);
     }
@@ -152,6 +158,10 @@ public class GameConfig {
 
     public HimarsConfig getHimars() {
         return himars;
+    }
+
+    public LocatorConfig getLocator() {
+        return locator;
     }
 
     public ItemStack[] getGameInventory() {

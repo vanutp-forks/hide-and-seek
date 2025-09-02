@@ -65,7 +65,8 @@ public class Utils {
     static public void killWithExplosion(Entity target, Entity attacker) {
         if (target instanceof Damageable) {
             var damageable = (Damageable) target;
-            var damageSource = DamageSource.builder(DamageType.EXPLOSION).withCausingEntity(attacker);
+            var damageSource = DamageSource.builder(DamageType.EXPLOSION).withDirectEntity(attacker)
+                .withCausingEntity(attacker);
             damageable.damage(1000, damageSource.build());
         } else {
             target.remove();

@@ -52,8 +52,9 @@ public class HimarsWeapon {
             return;
         if (event.getProjectile() instanceof Firework firework && Items.checkForItem(bow, TAG)) {
             Player shooter = (Player) event.getEntity();
-            if (isOnCooldown(shooter)) {
-                shooter.sendActionBar(Component.text("HIMARS is on cooldown!").color(NamedTextColor.RED));
+            int remaining = shooter.getGameMode() == GameMode.SURVIVAL ? getRemainingCooldownSeconds(shooter) : 0;
+            if (remaining > 0) {
+                shooter.sendActionBar(Component.text("HIMARS: " + remaining + "s").color(NamedTextColor.RED));
                 event.setCancelled(true);
                 return;
             }
@@ -83,11 +84,14 @@ public class HimarsWeapon {
         return true;
     }
 
-    private boolean isOnCooldown(Player player) {
-        if (player.getGameMode() != GameMode.SURVIVAL)
-            return false;
+    private int getRemainingCooldownSeconds(Player player) {
         Long last = cooldown.get(player);
-        return last != null && System.currentTimeMillis() - last < config.getHimars().getCooldown() * 1000L;
+        if (last == null)
+            return 0;
+        long elapsed = System.currentTimeMillis() - last;
+        long total = config.getHimars().getCooldown() * 1000L;
+        long remaining = Math.max(0, total - elapsed);
+        return (int) Math.ceil(remaining / 1000.0);
     }
 
     private void setCooldown(Player player) {

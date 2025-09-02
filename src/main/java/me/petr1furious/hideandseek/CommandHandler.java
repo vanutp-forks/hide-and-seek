@@ -49,8 +49,7 @@ public class CommandHandler {
             sender.sendMessage(Component.text("Game is not running").color(NamedTextColor.RED));
             return;
         }
-        target.sendMessage(Component.text("You joined the game").color(NamedTextColor.GREEN));
-        plugin.addPlayerToGame(target);
+        plugin.addPlayerToGame(target, true);
     }
 
     void giveItems(List<Player> players, ItemStack item) {
@@ -67,6 +66,8 @@ public class CommandHandler {
             return plugin.getOreshnikWeapon().createItem(count);
         } else if (key.equals("himars")) {
             return plugin.getHimarsWeapon().createItem(count);
+        } else if (key.equals("locator")) {
+            return plugin.getLocatorWeapon().createItem(count);
         }
         return null;
     }
@@ -152,6 +153,8 @@ public class CommandHandler {
                         builder.suggest("o");
                         builder.suggest("himars");
                         builder.suggest("h");
+                        builder.suggest("locator");
+                        builder.suggest("l");
                         return builder.buildFuture();
                     }).then(Commands.argument("property", StringArgumentType.string()).suggests((ctx, builder) -> {
                         String weapon = StringArgumentType.getString(ctx, "weapon");
@@ -215,6 +218,7 @@ public class CommandHandler {
                         builder.suggest("infinite_crossbow");
                         builder.suggest("oreshnik");
                         builder.suggest("himars");
+                        builder.suggest("locator");
                         return builder.buildFuture();
                     }).then(Commands.argument("count", IntegerArgumentType.integer(1)).executes(ctx -> {
                         String item = StringArgumentType.getString(ctx, "item");

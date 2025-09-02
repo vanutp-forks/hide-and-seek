@@ -27,6 +27,7 @@ import org.bukkit.util.Vector;
 import me.petr1furious.hideandseek.weapons.HimarsWeapon;
 import me.petr1furious.hideandseek.weapons.InfiniteCrossbowWeapon;
 import me.petr1furious.hideandseek.weapons.OreshnikWeapon;
+import me.petr1furious.hideandseek.weapons.LocatorWeapon;
 
 import java.util.Random;
 import java.util.List;
@@ -59,6 +60,7 @@ public class HideAndSeek extends JavaPlugin implements Listener {
     private InfiniteCrossbowWeapon infiniteCrossbowWeapon;
     private OreshnikWeapon oreshnikWeapon;
     private HimarsWeapon himarsWeapon;
+    private LocatorWeapon locatorWeapon;
 
     private final Set<UUID> gamePlayers = new HashSet<>();
 
@@ -75,6 +77,7 @@ public class HideAndSeek extends JavaPlugin implements Listener {
         infiniteCrossbowWeapon = new InfiniteCrossbowWeapon(gameConfig);
         oreshnikWeapon = new OreshnikWeapon(gameConfig);
         himarsWeapon = new HimarsWeapon(gameConfig);
+        locatorWeapon = new LocatorWeapon(gameConfig, this);
         registerEvents();
     }
 
@@ -90,13 +93,24 @@ public class HideAndSeek extends JavaPlugin implements Listener {
         return gameConfig;
     }
 
-    boolean isPlayerInGame(Player player) {
+    public boolean isPlayerInGame(Player player) {
         return gameStatus == GameStatus.RUNNING && gamePlayers.contains(player.getUniqueId())
             && player.getGameMode() != GameMode.SPECTATOR && player.getGameMode() != GameMode.CREATIVE
             && player.getWorld().getName().equals(gameConfig.getGameWorld());
     }
 
-    void addPlayerToGame(Player player) {
+    void addPlayerToGame(Player player, boolean broadcast) {
+        if (broadcast) {
+            Component joinMsg = Component.text().append(Component.text(player.getName(), NamedTextColor.AQUA))
+                .append(Component.text(" joined the game", NamedTextColor.GREEN)).build();
+            for (UUID uuid : gamePlayers) {
+                Player gp = getServer().getPlayer(uuid);
+                if (gp != null) {
+                    gp.sendMessage(joinMsg);
+                }
+            }
+        }
+
         gamePlayers.add(player.getUniqueId());
         boolean success = false;
         for (int i = 0; i < 100; i++) {
@@ -141,7 +155,7 @@ public class HideAndSeek extends JavaPlugin implements Listener {
         }
 
         for (Player player : chosen) {
-            addPlayerToGame(player);
+            addPlayerToGame(player, false);
             gamePlayers.add(player.getUniqueId());
         }
 
@@ -299,6 +313,7 @@ public class HideAndSeek extends JavaPlugin implements Listener {
                 infiniteCrossbowWeapon.onPlayerInteract(event);
                 himarsWeapon.onPlayerInteract(event);
                 oreshnikWeapon.onPlayerInteract(event);
+                locatorWeapon.onPlayerInteract(event);
             }
 
             @EventHandler
@@ -341,6 +356,8 @@ public class HideAndSeek extends JavaPlugin implements Listener {
         for (Player player1 : getServer().getOnlinePlayers()) {
             if (!gamePlayers.contains(player1.getUniqueId()))
                 continue;
+            if (!player1.getWorld().getName().equals(gameConfig.getGameWorld()))
+                continue;
             Scoreboard scoreboard = manager.getNewScoreboard();
             player1.setScoreboard(scoreboard);
             for (String entry : scoreboard.getEntries()) {
@@ -375,7 +392,7 @@ public class HideAndSeek extends JavaPlugin implements Listener {
 
     void updateCountdown() {
         for (Player player : getServer().getOnlinePlayers()) {
-            if (!isPlayerInGame(player))
+            if (!gamePlayers.contains(player.getUniqueId()))
                 continue;
             Objective obj = player.getScoreboard().getObjective(player.getName());
             if (obj == null)
@@ -450,6 +467,10 @@ public class HideAndSeek extends JavaPlugin implements Listener {
 
     public HimarsWeapon getHimarsWeapon() {
         return himarsWeapon;
+    }
+
+    public LocatorWeapon getLocatorWeapon() {
+        return locatorWeapon;
     }
 
     public void saveGameInventory(Player player) {
