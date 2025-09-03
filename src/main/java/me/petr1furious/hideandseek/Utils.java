@@ -62,6 +62,11 @@ public class Utils {
         location.getWorld().createExplosion(entity, location, (float) explosionPower, false, true, false);
     }
 
+    static public void spawnExplosion(Location location, double explosionPower, Entity entity,
+        boolean excludeEntityDamage) {
+        location.getWorld().createExplosion(entity, location, (float) explosionPower, false, true, excludeEntityDamage);
+    }
+
     static public void killWithExplosion(Entity target, Entity attacker) {
         if (target instanceof Damageable) {
             var damageable = (Damageable) target;

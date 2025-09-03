@@ -11,6 +11,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityShootBowEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
@@ -28,6 +29,7 @@ import me.petr1furious.hideandseek.weapons.HimarsWeapon;
 import me.petr1furious.hideandseek.weapons.InfiniteCrossbowWeapon;
 import me.petr1furious.hideandseek.weapons.OreshnikWeapon;
 import me.petr1furious.hideandseek.weapons.LocatorWeapon;
+import me.petr1furious.hideandseek.weapons.FPVDroneWeapon;
 
 import java.util.Random;
 import java.util.List;
@@ -39,6 +41,7 @@ import java.util.ArrayList;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 public class HideAndSeek extends JavaPlugin implements Listener {
 
@@ -61,6 +64,7 @@ public class HideAndSeek extends JavaPlugin implements Listener {
     private OreshnikWeapon oreshnikWeapon;
     private HimarsWeapon himarsWeapon;
     private LocatorWeapon locatorWeapon;
+    private FPVDroneWeapon fpvDroneWeapon;
 
     private final Set<UUID> gamePlayers = new HashSet<>();
 
@@ -78,6 +82,7 @@ public class HideAndSeek extends JavaPlugin implements Listener {
         oreshnikWeapon = new OreshnikWeapon(gameConfig);
         himarsWeapon = new HimarsWeapon(gameConfig);
         locatorWeapon = new LocatorWeapon(gameConfig, this);
+        fpvDroneWeapon = new FPVDroneWeapon(gameConfig, this);
         registerEvents();
     }
 
@@ -243,7 +248,7 @@ public class HideAndSeek extends JavaPlugin implements Listener {
 
     void registerEvents() {
         getServer().getPluginManager().registerEvents(new Listener() {
-            @EventHandler
+            @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
             public void onPlayerDeath(PlayerDeathEvent event) {
                 if (gameStatus != GameStatus.RUNNING) {
                     return;
@@ -251,7 +256,16 @@ public class HideAndSeek extends JavaPlugin implements Listener {
 
                 Player player = event.getPlayer();
                 event.setCancelled(isPlayerInGame(player));
-                getServer().broadcast(event.deathMessage().color(NamedTextColor.GRAY));
+                Component death = event.deathMessage();
+                if (death != null) {
+                    String plain = PlainTextComponentSerializer.plainText().serialize(death);
+                    int idx = plain.indexOf(" using ");
+                    if (idx != -1) {
+                        plain = plain.substring(0, idx);
+                        death = Component.text(plain);
+                    }
+                    getServer().broadcast(death.color(NamedTextColor.GRAY));
+                }
                 player.setGameMode(GameMode.SPECTATOR);
 
                 if (!checkingGameEnd) {
@@ -314,6 +328,7 @@ public class HideAndSeek extends JavaPlugin implements Listener {
                 himarsWeapon.onPlayerInteract(event);
                 oreshnikWeapon.onPlayerInteract(event);
                 locatorWeapon.onPlayerInteract(event);
+                fpvDroneWeapon.onPlayerInteract(event);
             }
 
             @EventHandler
@@ -471,6 +486,10 @@ public class HideAndSeek extends JavaPlugin implements Listener {
 
     public LocatorWeapon getLocatorWeapon() {
         return locatorWeapon;
+    }
+
+    public FPVDroneWeapon getFpvDroneWeapon() {
+        return fpvDroneWeapon;
     }
 
     public void saveGameInventory(Player player) {

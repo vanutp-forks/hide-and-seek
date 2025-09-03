@@ -15,6 +15,7 @@ import me.petr1furious.hideandseek.weapons.InfiniteCrossbowConfig;
 import me.petr1furious.hideandseek.weapons.OreshnikConfig;
 import me.petr1furious.hideandseek.weapons.WeaponConfig;
 import me.petr1furious.hideandseek.weapons.LocatorConfig;
+import me.petr1furious.hideandseek.weapons.FPVDroneConfig;
 
 public class GameConfig {
     FileConfiguration config;
@@ -36,6 +37,7 @@ public class GameConfig {
     private final OreshnikConfig oreshnik = new OreshnikConfig();
     private final HimarsConfig himars = new HimarsConfig();
     private final LocatorConfig locator = new LocatorConfig();
+    private final FPVDroneConfig fpvDrone = new FPVDroneConfig();
 
     private final Map<String, WeaponConfig> weaponConfigIndex = new HashMap<>();
 
@@ -55,6 +57,8 @@ public class GameConfig {
         weaponConfigIndex.put("h", himars);
         weaponConfigIndex.put("locator", locator);
         weaponConfigIndex.put("l", locator);
+        weaponConfigIndex.put("fpv_drone", fpvDrone);
+        weaponConfigIndex.put("fpv", fpvDrone);
     }
 
     public void load() {
@@ -87,6 +91,7 @@ public class GameConfig {
         oreshnik.load(weaponsRoot.getConfigurationSection("oreshnik"));
         himars.load(weaponsRoot.getConfigurationSection("himars"));
         locator.load(weaponsRoot.getConfigurationSection("locator"));
+        fpvDrone.load(weaponsRoot.getConfigurationSection("fpv_drone"));
 
         enableGameInventory = config.getBoolean("enableGameInventory", false);
         gameInventory = config.getList("gameInventory", new ArrayList<ItemStack>()).toArray(new ItemStack[0]);
@@ -108,6 +113,7 @@ public class GameConfig {
         oreshnik.save(getOrCreate(weaponsRoot, "oreshnik"));
         himars.save(getOrCreate(weaponsRoot, "himars"));
         locator.save(getOrCreate(weaponsRoot, "locator"));
+        fpvDrone.save(getOrCreate(weaponsRoot, "fpv_drone"));
         config.set("enableGameInventory", enableGameInventory);
         config.set("gameInventory", gameInventory);
     }
@@ -162,6 +168,10 @@ public class GameConfig {
 
     public LocatorConfig getLocator() {
         return locator;
+    }
+
+    public FPVDroneConfig getFpvDrone() {
+        return fpvDrone;
     }
 
     public ItemStack[] getGameInventory() {

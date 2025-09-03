@@ -21,20 +21,9 @@ public class LiftHandler {
     private Map<Player, Long> lastSoundTime = new HashMap<>();
 
     private char[][][] liftPatterns = {
-        {
-            { '?', 'x', 'x', '?' },
-            { 'x', 'o', 'o', 'x' },
-            { 'x', 'o', 'o', 'x' },
-            { '?', 'x', 'x', '?' }
-        },
-        {
-            { '?', '?', 'x', '?', '?' },
-            { '?', 'x', 'o', 'x', '?' },
-            { 'x', 'o', 'o', 'o', 'x' },
-            { '?', 'x', 'o', 'x', '?' },
-            { '?', '?', 'x', '?', '?' }
-        }
-    };
+        { { '?', 'x', 'x', '?' }, { 'x', 'o', 'o', 'x' }, { 'x', 'o', 'o', 'x' }, { '?', 'x', 'x', '?' } },
+        { { '?', '?', 'x', '?', '?' }, { '?', 'x', 'o', 'x', '?' }, { 'x', 'o', 'o', 'o', 'x' },
+            { '?', 'x', 'o', 'x', '?' }, { '?', '?', 'x', '?', '?' } } };
 
     private int checkLiftSide(Location location, Material liftMaterial, boolean directionUp) {
         int liftWallCount = 0;
@@ -135,15 +124,10 @@ public class LiftHandler {
     }
 
     public void handleLift(Player player, Material liftMaterial, boolean isEnableLifts) {
-        if (player.getGameMode() != GameMode.SURVIVAL && player.getGameMode() != GameMode.ADVENTURE) {
+        if (!isEnableLifts) {
             return;
         }
-
-        if (!isEnableLifts) {
-            if (player.getAllowFlight()) {
-                player.setAllowFlight(false);
-                player.setFlying(false);
-            }
+        if (player.getGameMode() != GameMode.SURVIVAL && player.getGameMode() != GameMode.ADVENTURE) {
             return;
         }
 
