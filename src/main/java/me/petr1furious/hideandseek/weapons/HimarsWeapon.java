@@ -78,8 +78,6 @@ public class HimarsWeapon {
                 config.getHimars().getMaxExplosionPower());
         }
         Utils.spawnExplosion(location, power, shooter);
-        if (target != null)
-            Utils.killWithExplosion(target, shooter);
         projectile.remove();
         return true;
     }

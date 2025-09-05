@@ -49,7 +49,6 @@ public class FPVDroneWeapon {
         final GameMode originalMode;
         final boolean originalAllowFlight;
         final ItemStack[] originalContents;
-        final boolean originalInvisible;
         final double health;
         final int foodLevel;
         final float saturation;
@@ -58,8 +57,8 @@ public class FPVDroneWeapon {
         boolean appliedInvisPotion = false;
 
         DroneSession(UUID playerId, ArmorStand anchor, BlockDisplay display, Location origin, int startTick,
-            GameMode originalMode, boolean originalAllowFlight, ItemStack[] originalContents, boolean originalInvisible,
-            double health, int foodLevel, float saturation) {
+            GameMode originalMode, boolean originalAllowFlight, ItemStack[] originalContents, double health,
+            int foodLevel, float saturation) {
             this.playerId = playerId;
             this.anchor = anchor;
             this.droneDisplay = display;
@@ -67,7 +66,6 @@ public class FPVDroneWeapon {
             this.originalMode = originalMode;
             this.originalAllowFlight = originalAllowFlight;
             this.originalContents = originalContents;
-            this.originalInvisible = originalInvisible;
             this.health = health;
             this.foodLevel = foodLevel;
             this.saturation = saturation;
@@ -129,7 +127,7 @@ public class FPVDroneWeapon {
                 }
             }
 
-            @EventHandler(priority = EventPriority.LOW)
+            @EventHandler(priority = EventPriority.LOWEST)
             public void onPlayerDeath(PlayerDeathEvent event) {
                 Player p = event.getEntity();
                 DroneSession s = sessions.get(p.getUniqueId());
@@ -229,18 +227,18 @@ public class FPVDroneWeapon {
 
                 if (s.droneDisplay != null && !s.droneDisplay.isDead()) {
                     Location l = p.getLocation().clone();
-                    l.setYaw(0f);
                     l.setPitch(0f);
-                    s.droneDisplay.teleport(l.add(-0.5, 0, -0.5));
+                    double angle = l.getYaw() / 180 * Math.PI;
+                    double sin = Math.sin(angle);
+                    double cos = Math.cos(angle);
+                    s.droneDisplay.teleport(l.add(-0.5 * (cos - sin), 1, -0.5 * (sin + cos)));
                 }
 
                 int left = (int) Math.max(0, (fpvConfig.getMaxFlightTicks() - (tick - s.startTick)) / 20.0);
                 p.sendActionBar(Component.text("FPV: " + left + "s").color(NamedTextColor.AQUA));
 
-                if (tick % 2 == 0) {
-                    float pitch = 1.2f + ((tick / 2) % 3) * 0.12f;
-                    p.getWorld().playSound(p.getLocation(), Sound.BLOCK_NOTE_BLOCK_BIT, SoundCategory.PLAYERS, 0.35f,
-                        pitch);
+                if (tick % 10 == 0) {
+                    p.getWorld().playSound(p, Sound.ENTITY_BEE_LOOP, SoundCategory.PLAYERS, 4, 2);
                 }
 
                 s.lastLocation = p.getLocation().clone();
@@ -374,10 +372,10 @@ public class FPVDroneWeapon {
         BlockDisplay display = origin.getWorld().spawn(origin, BlockDisplay.class, bd -> {
             bd.setBlock(Bukkit.createBlockData(Material.IRON_TRAPDOOR));
             bd.setMetadata(META_DRONE_DISPLAY, new FixedMetadataValue(plugin, true));
+            bd.setTeleportDuration(1);
         });
         GameMode originalMode = player.getGameMode();
         boolean originalAllowFlight = player.getAllowFlight();
-        boolean originalInvisible = player.isInvisible();
         ItemStack[] originalContents = player.getInventory().getContents();
         double health = player.getHealth();
         int food = player.getFoodLevel();
@@ -390,20 +388,21 @@ public class FPVDroneWeapon {
         player.teleport(player.getLocation().add(0, 0.05, 0));
         player.getInventory().clear();
         player.getInventory().setArmorContents(new ItemStack[] { null, null, null, null });
-        player.setInvisible(true);
+        boolean addedPotion = false;
         if (!player.hasPotionEffect(PotionEffectType.INVISIBILITY)) {
             PotionEffect invis = new PotionEffect(PotionEffectType.INVISIBILITY, 20 * 60 * 30, 1, false, false, false);
             player.addPotionEffect(invis);
+            addedPotion = true;
         }
 
         DroneSession session = new DroneSession(player.getUniqueId(), anchor, display, origin, Bukkit.getCurrentTick(),
-            originalMode, originalAllowFlight, originalContents, originalInvisible, health, food, saturation);
-        session.appliedInvisPotion = true;
+            originalMode, originalAllowFlight, originalContents, health, food, saturation);
+        session.appliedInvisPotion = addedPotion;
         sessions.put(player.getUniqueId(), session);
         player.sendActionBar(Component.text("Drone deployed: right-click to detonate").color(NamedTextColor.GREEN));
     }
 
-    private void endSession(UUID playerId) {
+    public void endSession(UUID playerId) {
         DroneSession session = sessions.get(playerId);
         if (session == null || session.ended)
             return;
@@ -416,13 +415,12 @@ public class FPVDroneWeapon {
             }
             player.setGameMode(session.originalMode);
 
+            player.stopSound(Sound.ENTITY_BEE_LOOP, SoundCategory.PLAYERS);
+
             if (session.originalContents != null) {
                 player.getInventory().setContents(session.originalContents.clone());
             }
 
-            if (!session.originalInvisible) {
-                player.setInvisible(false);
-            }
             if (session.appliedInvisPotion) {
                 player.removePotionEffect(PotionEffectType.INVISIBILITY);
             }
@@ -461,5 +459,10 @@ public class FPVDroneWeapon {
         item.setItemMeta(meta);
         item.setAmount(count);
         return item;
+    }
+
+    public boolean isPlayerInDroneMode(Player player) {
+        DroneSession s = sessions.get(player.getUniqueId());
+        return s != null && !s.ended;
     }
 }

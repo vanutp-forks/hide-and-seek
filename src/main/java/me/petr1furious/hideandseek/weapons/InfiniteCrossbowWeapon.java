@@ -66,8 +66,6 @@ public class InfiniteCrossbowWeapon {
         if (!config.getInfiniteCrossbow().isEnableExplosions())
             return false;
         Utils.spawnExplosion(location, config.getInfiniteCrossbow().getExplosionPower(), shooter);
-        if (target != null)
-            Utils.killWithExplosion(target, shooter);
         projectile.remove();
         return true;
     }

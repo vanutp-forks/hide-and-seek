@@ -123,7 +123,11 @@ public class LiftHandler {
         return false;
     }
 
-    public void handleLift(Player player, Material liftMaterial, boolean isEnableLifts) {
+    public void handleLift(Player player, Material liftMaterial, boolean isEnableLifts, GameStatus gameStatus,
+        boolean inDroneMode) {
+        if (gameStatus != GameStatus.RUNNING || inDroneMode) {
+            return;
+        }
         if (!isEnableLifts) {
             return;
         }

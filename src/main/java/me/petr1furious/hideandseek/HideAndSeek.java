@@ -41,7 +41,6 @@ import java.util.ArrayList;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 
 public class HideAndSeek extends JavaPlugin implements Listener {
 
@@ -258,12 +257,6 @@ public class HideAndSeek extends JavaPlugin implements Listener {
                 event.setCancelled(isPlayerInGame(player));
                 Component death = event.deathMessage();
                 if (death != null) {
-                    String plain = PlainTextComponentSerializer.plainText().serialize(death);
-                    int idx = plain.indexOf(" using ");
-                    if (idx != -1) {
-                        plain = plain.substring(0, idx);
-                        death = Component.text(plain);
-                    }
                     getServer().broadcast(death.color(NamedTextColor.GRAY));
                 }
                 player.setGameMode(GameMode.SPECTATOR);
@@ -333,7 +326,9 @@ public class HideAndSeek extends JavaPlugin implements Listener {
 
             @EventHandler
             public void onPlayerMove(org.bukkit.event.player.PlayerMoveEvent event) {
-                liftHandler.handleLift(event.getPlayer(), gameConfig.getLiftMaterial(), gameConfig.isEnableLifts());
+                boolean inDrone = fpvDroneWeapon.isPlayerInDroneMode(event.getPlayer());
+                liftHandler.handleLift(event.getPlayer(), gameConfig.getLiftMaterial(), gameConfig.isEnableLifts(),
+                    gameStatus, inDrone);
             }
 
             @EventHandler

@@ -1,9 +1,6 @@
 package me.petr1furious.hideandseek;
 
 import org.bukkit.Location;
-import org.bukkit.damage.DamageSource;
-import org.bukkit.damage.DamageType;
-import org.bukkit.entity.Damageable;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
@@ -65,17 +62,6 @@ public class Utils {
     static public void spawnExplosion(Location location, double explosionPower, Entity entity,
         boolean excludeEntityDamage) {
         location.getWorld().createExplosion(entity, location, (float) explosionPower, false, true, excludeEntityDamage);
-    }
-
-    static public void killWithExplosion(Entity target, Entity attacker) {
-        if (target instanceof Damageable) {
-            var damageable = (Damageable) target;
-            var damageSource = DamageSource.builder(DamageType.EXPLOSION).withDirectEntity(attacker)
-                .withCausingEntity(attacker);
-            damageable.damage(1000, damageSource.build());
-        } else {
-            target.remove();
-        }
     }
 
     static public Entity getEntityShooter(Projectile projectile) {

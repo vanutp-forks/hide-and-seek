@@ -63,8 +63,6 @@ public class OreshnikWeapon {
         if (!Items.checkForProjectile(projectile, TAG))
             return false;
         Utils.spawnExplosion(location, config.getOreshnik().getExplosionPower(), shooter);
-        if (target != null)
-            Utils.killWithExplosion(target, shooter);
         projectile.remove();
         return true;
     }
