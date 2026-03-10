@@ -60,8 +60,9 @@ public class Utils {
     }
 
     static public void spawnExplosion(Location location, double explosionPower, Entity entity,
-        boolean excludeEntityDamage) {
-        location.getWorld().createExplosion(entity, location, (float) explosionPower, false, true, excludeEntityDamage);
+        boolean excludeSourceFromDamage) {
+        location.getWorld().createExplosion(entity, location, (float) explosionPower, false, true,
+            excludeSourceFromDamage);
     }
 
     static public Entity getEntityShooter(Projectile projectile) {

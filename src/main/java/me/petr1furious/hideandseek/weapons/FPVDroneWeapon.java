@@ -183,10 +183,10 @@ public class FPVDroneWeapon {
             if (sessions.isEmpty())
                 return;
             int tick = Bukkit.getCurrentTick();
-            List<UUID> toEnd = new ArrayList<>();
-            for (Map.Entry<UUID, DroneSession> e : sessions.entrySet()) {
+            Set<UUID> toEnd = new LinkedHashSet<>();
+            for (Map.Entry<UUID, DroneSession> e : new ArrayList<>(sessions.entrySet())) {
                 DroneSession s = e.getValue();
-                if (s.ended)
+                if (s.ended || toEnd.contains(s.playerId))
                     continue;
                 Player p = plugin.getServer().getPlayer(s.playerId);
                 if (p == null || !p.isOnline() || p.isDead()) {
@@ -217,9 +217,16 @@ public class FPVDroneWeapon {
                             toEnd.add(s.playerId);
                             continue;
                         }
-                        if (detectEntityCollision(p, s)) {
+                        Entity collidedEntity = detectEntityCollision(p, s);
+                        if (collidedEntity != null) {
                             explodeDrone(p, s.lastLocation);
                             toEnd.add(s.playerId);
+                            if (collidedEntity instanceof Player other) {
+                                DroneSession otherSession = sessions.get(other.getUniqueId());
+                                if (otherSession != null && !otherSession.ended) {
+                                    toEnd.add(other.getUniqueId());
+                                }
+                            }
                             continue;
                         }
                     }
@@ -258,7 +265,7 @@ public class FPVDroneWeapon {
             bb.getMaxX() + sx, bb.getMaxY() + sy, bb.getMaxZ() + sz);
     }
 
-    private boolean detectEntityCollision(Player p, DroneSession session) {
+    private Entity detectEntityCollision(Player p, DroneSession session) {
         var bb = p.getBoundingBox();
         World w = p.getWorld();
 
@@ -270,13 +277,18 @@ public class FPVDroneWeapon {
                 continue;
             if (session.droneDisplay != null && ent.getUniqueId().equals(session.droneDisplay.getUniqueId()))
                 continue;
+            if (ent instanceof Player) {
+                Player other = (Player) ent;
+                if (other.getGameMode() == GameMode.SPECTATOR)
+                    continue;
+            }
 
             var ebb = ent.getBoundingBox();
             if (bb.overlaps(ebb)) {
-                return true;
+                return ent;
             }
         }
-        return false;
+        return null;
     }
 
     private boolean detectBlockCollisionBounds(World world, double minX, double minY, double minZ, double maxX,
