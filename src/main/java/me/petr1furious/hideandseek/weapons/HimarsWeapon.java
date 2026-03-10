@@ -6,7 +6,6 @@ import me.petr1furious.hideandseek.Utils;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
-import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -19,14 +18,13 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.CrossbowMeta;
 import org.bukkit.inventory.meta.FireworkMeta;
-
+import org.bukkit.util.Vector;
 import java.util.HashMap;
 import java.util.Map;
 
 public class HimarsWeapon {
     private final GameConfig config;
     private final Map<Projectile, Location> projectileStart = new HashMap<>();
-    private final Map<Player, Long> cooldown = new HashMap<>();
 
     private final String TAG = "himars";
 
@@ -59,7 +57,7 @@ public class HimarsWeapon {
                 return;
             }
             setCooldown(shooter);
-            firework.setVelocity(firework.getVelocity().multiply(config.getHimars().getFireworkSpeed()));
+            applyLaunchDirection(firework, shooter);
             Items.setProjectileTag(firework, TAG);
             FireworkMeta meta = firework.getFireworkMeta();
             meta.setPower(20);
@@ -83,19 +81,27 @@ public class HimarsWeapon {
     }
 
     private int getRemainingCooldownSeconds(Player player) {
-        Long last = cooldown.get(player);
-        if (last == null)
-            return 0;
-        long elapsed = System.currentTimeMillis() - last;
-        long total = config.getHimars().getCooldown() * 1000L;
-        long remaining = Math.max(0, total - elapsed);
-        return (int) Math.ceil(remaining / 1000.0);
+        return (int) Math.ceil(player.getCooldown(Material.CROSSBOW) / 20.0);
     }
 
     private void setCooldown(Player player) {
-        cooldown.put(player, System.currentTimeMillis());
-        Bukkit.getScheduler().runTaskLater(org.bukkit.plugin.java.JavaPlugin.getProvidingPlugin(getClass()),
-            () -> cooldown.remove(player), config.getHimars().getCooldown() * 20L);
+        player.setCooldown(Material.CROSSBOW, Math.toIntExact(config.getHimars().getCooldown() * 20L));
+    }
+
+    private void applyLaunchDirection(Firework firework, Player shooter) {
+        Vector vanillaVelocity = firework.getVelocity();
+        Vector vanillaDirection = vanillaVelocity.clone().normalize();
+        Vector aimDirection = shooter.getEyeLocation().getDirection().normalize();
+        double blend = Math.max(0.0, Math.min(1.0, config.getHimars().getAimDirectionBlend()));
+        Vector finalDirection = aimDirection.multiply(blend).add(vanillaDirection.multiply(1.0 - blend));
+
+        if (finalDirection.lengthSquared() <= 1.0E-6) {
+            finalDirection = aimDirection;
+        } else {
+            finalDirection.normalize();
+        }
+
+        firework.setVelocity(finalDirection.multiply(config.getHimars().getFireworkSpeedBlocksPerTick()));
     }
 
     public ItemStack createItem(int count) {

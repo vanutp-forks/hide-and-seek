@@ -307,15 +307,18 @@ public class FPVDroneWeapon {
                         continue;
                     if (block.isPassable())
                         continue;
-                    double blMinX = bx;
-                    double blMaxX = bx + 1;
-                    double blMinY = by;
-                    double blMaxY = by + 1;
-                    double blMinZ = bz;
-                    double blMaxZ = bz + 1;
-                    if (blMaxX > minX && blMinX < maxX && blMaxY > minY && blMinY < maxY && blMaxZ > minZ
-                        && blMinZ < maxZ) {
-                        return true;
+                    var collisionShape = block.getCollisionShape();
+                    for (var shapeBox : collisionShape.getBoundingBoxes()) {
+                        double blMinX = bx + shapeBox.getMinX();
+                        double blMaxX = bx + shapeBox.getMaxX();
+                        double blMinY = by + shapeBox.getMinY();
+                        double blMaxY = by + shapeBox.getMaxY();
+                        double blMinZ = bz + shapeBox.getMinZ();
+                        double blMaxZ = bz + shapeBox.getMaxZ();
+                        if (blMaxX > minX && blMinX < maxX && blMaxY > minY && blMinY < maxY && blMaxZ > minZ
+                            && blMinZ < maxZ) {
+                            return true;
+                        }
                     }
                 }
             }

@@ -16,13 +16,9 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
-import java.util.HashMap;
-import java.util.Map;
-
 public class LocatorWeapon {
     private final GameConfig config;
     private final HideAndSeek plugin;
-    private final Map<Player, Long> cooldown = new HashMap<>();
     private final String TAG = "locator";
 
     public LocatorWeapon(GameConfig config, HideAndSeek plugin) {
@@ -40,7 +36,7 @@ public class LocatorWeapon {
         if (player.getGameMode() == GameMode.SPECTATOR)
             return;
         LocatorConfig lc = config.getLocator();
-        int remaining = getRemainingCooldownSeconds(player, lc);
+        int remaining = getRemainingCooldownSeconds(player);
         if (remaining > 0) {
             player.sendActionBar(Component.text("Locator: " + remaining + "s").color(NamedTextColor.RED));
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BIT, 0.2f, 0.5f); // cooldown/fail sound
@@ -67,20 +63,12 @@ public class LocatorWeapon {
         }
     }
 
-    private int getRemainingCooldownSeconds(Player player, LocatorConfig lc) {
-        Long last = cooldown.get(player);
-        if (last == null)
-            return 0;
-        long elapsed = System.currentTimeMillis() - last;
-        long total = lc.getCooldown() * 1000L;
-        long remaining = Math.max(0, total - elapsed);
-        return (int) Math.ceil(remaining / 1000.0);
+    private int getRemainingCooldownSeconds(Player player) {
+        return (int) Math.ceil(player.getCooldown(Material.COMPARATOR) / 20.0);
     }
 
     private void setCooldown(Player player, LocatorConfig lc) {
-        cooldown.put(player, System.currentTimeMillis());
-        Bukkit.getScheduler().runTaskLater(org.bukkit.plugin.java.JavaPlugin.getProvidingPlugin(getClass()),
-            () -> cooldown.remove(player), lc.getCooldown() * 20L);
+        player.setCooldown(Material.COMPARATOR, Math.toIntExact(lc.getCooldown() * 20L));
     }
 
     private Player findNearest(Player source) {

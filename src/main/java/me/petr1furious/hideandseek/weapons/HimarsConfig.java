@@ -6,13 +6,15 @@ import org.bukkit.configuration.ConfigurationSection;
 
 public class HimarsConfig implements WeaponConfig {
     private long cooldown = 10; // seconds
-    private double explosionPowerPerBlock = 1 / 15.0;
-    private double maxExplosionPower = 10.0;
-    private double fireworkSpeed = 1.5;
+    private double explosionPowerPerBlock = 1 / 30.0;
+    private double maxExplosionPower = 5.0;
+    private double fireworkSpeedBlocksPerTick = 3.0;
+    private double aimDirectionBlend = 0.85;
 
     @Override
     public List<String> getPropertyNames() {
-        return Arrays.asList("cooldown", "explosionPowerPerBlock", "maxExplosionPower", "fireworkSpeed");
+        return Arrays.asList("cooldown", "explosionPowerPerBlock", "maxExplosionPower", "fireworkSpeedBlocksPerTick",
+            "aimDirectionBlend");
     }
 
     @Override
@@ -26,10 +28,14 @@ public class HimarsConfig implements WeaponConfig {
                 explosionPowerPerBlock = Float.parseFloat(value);
                 return WeaponSetResult.SUCCESS;
             case "fireworkspeed":
-                fireworkSpeed = Double.parseDouble(value);
+            case "fireworkspeedblockspertick":
+                fireworkSpeedBlocksPerTick = Double.parseDouble(value);
                 return WeaponSetResult.SUCCESS;
             case "maxexplosionpower":
                 maxExplosionPower = Double.parseDouble(value);
+                return WeaponSetResult.SUCCESS;
+            case "aimdirectionblend":
+                aimDirectionBlend = Double.parseDouble(value);
                 return WeaponSetResult.SUCCESS;
             default:
                 return WeaponSetResult.UNKNOWN_PROPERTY;
@@ -49,7 +55,10 @@ public class HimarsConfig implements WeaponConfig {
         case "maxexplosionpower":
             return maxExplosionPower;
         case "fireworkspeed":
-            return fireworkSpeed;
+        case "fireworkspeedblockspertick":
+            return fireworkSpeedBlocksPerTick;
+        case "aimdirectionblend":
+            return aimDirectionBlend;
         default:
             return null;
         }
@@ -60,7 +69,8 @@ public class HimarsConfig implements WeaponConfig {
         section.set("cooldown", cooldown);
         section.set("explosionPowerPerBlock", explosionPowerPerBlock);
         section.set("maxExplosionPower", maxExplosionPower);
-        section.set("fireworkSpeed", fireworkSpeed);
+        section.set("fireworkSpeedBlocksPerTick", fireworkSpeedBlocksPerTick);
+        section.set("aimDirectionBlend", aimDirectionBlend);
     }
 
     @Override
@@ -70,7 +80,9 @@ public class HimarsConfig implements WeaponConfig {
         cooldown = section.getLong("cooldown", cooldown);
         explosionPowerPerBlock = section.getDouble("explosionPowerPerBlock", explosionPowerPerBlock);
         maxExplosionPower = section.getDouble("maxExplosionPower", maxExplosionPower);
-        fireworkSpeed = section.getDouble("fireworkSpeed", fireworkSpeed);
+        fireworkSpeedBlocksPerTick = section.getDouble("fireworkSpeedBlocksPerTick",
+            section.getDouble("fireworkSpeed", fireworkSpeedBlocksPerTick));
+        aimDirectionBlend = section.getDouble("aimDirectionBlend", aimDirectionBlend);
     }
 
     public long getCooldown() {
@@ -85,7 +97,11 @@ public class HimarsConfig implements WeaponConfig {
         return maxExplosionPower;
     }
 
-    public double getFireworkSpeed() {
-        return fireworkSpeed;
+    public double getFireworkSpeedBlocksPerTick() {
+        return fireworkSpeedBlocksPerTick;
+    }
+
+    public double getAimDirectionBlend() {
+        return aimDirectionBlend;
     }
 }
