@@ -87,6 +87,9 @@ public class HideAndSeek extends JavaPlugin implements Listener {
 
     @Override
     public void onDisable() {
+        if (fpvDroneWeapon != null) {
+            fpvDroneWeapon.endAllSessions();
+        }
     }
 
     public GameStatus getGameStatus() {

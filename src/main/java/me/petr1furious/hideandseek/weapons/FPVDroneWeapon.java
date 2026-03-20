@@ -23,9 +23,11 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.metadata.FixedMetadataValue;
 import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -33,6 +35,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.util.*;
 
 public class FPVDroneWeapon {
+    private static final double DRONE_PLAYER_SCALE = 0.5;
+
     private final JavaPlugin plugin;
     private final FPVDroneConfig fpvConfig;
     private final Map<UUID, DroneSession> sessions = new HashMap<>();
@@ -52,13 +56,14 @@ public class FPVDroneWeapon {
         final double health;
         final int foodLevel;
         final float saturation;
+        final Double originalScale;
         Location lastLocation;
         boolean ended = false;
         boolean appliedInvisPotion = false;
 
         DroneSession(UUID playerId, ArmorStand anchor, BlockDisplay display, Location origin, int startTick,
             GameMode originalMode, boolean originalAllowFlight, ItemStack[] originalContents, double health,
-            int foodLevel, float saturation) {
+            int foodLevel, float saturation, Double originalScale) {
             this.playerId = playerId;
             this.anchor = anchor;
             this.droneDisplay = display;
@@ -69,6 +74,7 @@ public class FPVDroneWeapon {
             this.health = health;
             this.foodLevel = foodLevel;
             this.saturation = saturation;
+            this.originalScale = originalScale;
             this.lastLocation = origin == null ? null : origin.clone();
         }
     }
@@ -133,6 +139,15 @@ public class FPVDroneWeapon {
                 DroneSession s = sessions.get(p.getUniqueId());
                 if (s != null && !s.ended) {
                     event.setCancelled(true);
+                    endSession(p.getUniqueId());
+                }
+            }
+
+            @EventHandler(priority = EventPriority.HIGHEST)
+            public void onPlayerQuit(PlayerQuitEvent event) {
+                Player p = event.getPlayer();
+                DroneSession s = sessions.get(p.getUniqueId());
+                if (s != null && !s.ended) {
                     endSession(p.getUniqueId());
                 }
             }
@@ -329,20 +344,21 @@ public class FPVDroneWeapon {
     public void onPlayerInteract(PlayerInteractEvent event) {
         if (!Items.isRightClick(event))
             return;
+        Player player = event.getPlayer();
+        DroneSession existing = sessions.get(player.getUniqueId());
+        if (existing != null && !existing.ended) {
+            event.setCancelled(true);
+            endSession(player.getUniqueId());
+            player.sendActionBar(Component.text("Drone flight aborted").color(NamedTextColor.YELLOW));
+            return;
+        }
         ItemStack item = event.getItem();
         if (!Items.checkForItem(item, TAG))
             return;
-        Player player = event.getPlayer();
         event.setCancelled(true);
 
         if (!player.getLocation().clone().subtract(0, 0.05, 0).getBlock().getType().isSolid()) {
             player.sendActionBar(Component.text("Must be on ground to deploy drone").color(NamedTextColor.RED));
-            return;
-        }
-        DroneSession existing = sessions.get(player.getUniqueId());
-        if (existing != null && !existing.ended) {
-            explodeDrone(player, existing.lastLocation);
-            endSession(player.getUniqueId());
             return;
         }
 
@@ -395,11 +411,19 @@ public class FPVDroneWeapon {
         double health = player.getHealth();
         int food = player.getFoodLevel();
         float saturation = player.getSaturation();
+        Double originalScale = null;
+        AttributeInstance scaleAttribute = player.getAttribute(Attribute.SCALE);
+        if (scaleAttribute != null) {
+            originalScale = scaleAttribute.getBaseValue();
+        }
 
         player.setGameMode(GameMode.SURVIVAL);
         if (!player.getAllowFlight())
             player.setAllowFlight(true);
         player.setFlying(true);
+        if (scaleAttribute != null) {
+            scaleAttribute.setBaseValue(DRONE_PLAYER_SCALE);
+        }
         player.teleport(player.getLocation().add(0, 0.05, 0));
         player.getInventory().clear();
         player.getInventory().setArmorContents(new ItemStack[] { null, null, null, null });
@@ -411,10 +435,10 @@ public class FPVDroneWeapon {
         }
 
         DroneSession session = new DroneSession(player.getUniqueId(), anchor, display, origin, Bukkit.getCurrentTick(),
-            originalMode, originalAllowFlight, originalContents, health, food, saturation);
+            originalMode, originalAllowFlight, originalContents, health, food, saturation, originalScale);
         session.appliedInvisPotion = addedPotion;
         sessions.put(player.getUniqueId(), session);
-        player.sendActionBar(Component.text("Drone deployed: right-click to detonate").color(NamedTextColor.GREEN));
+        player.sendActionBar(Component.text("Drone deployed: right-click to abort").color(NamedTextColor.GREEN));
     }
 
     public void endSession(UUID playerId) {
@@ -439,6 +463,10 @@ public class FPVDroneWeapon {
             if (session.appliedInvisPotion) {
                 player.removePotionEffect(PotionEffectType.INVISIBILITY);
             }
+            AttributeInstance scaleAttribute = player.getAttribute(Attribute.SCALE);
+            if (scaleAttribute != null && session.originalScale != null) {
+                scaleAttribute.setBaseValue(session.originalScale);
+            }
             if (session.anchor != null && !session.anchor.isDead()) {
                 Location anchorLocation = session.anchor.getLocation();
                 Bukkit.getScheduler().runTaskLater(plugin, () -> {
@@ -457,6 +485,12 @@ public class FPVDroneWeapon {
         if (session.droneDisplay != null && !session.droneDisplay.isDead())
             session.droneDisplay.remove();
         sessions.remove(playerId);
+    }
+
+    public void endAllSessions() {
+        for (UUID playerId : new ArrayList<>(sessions.keySet())) {
+            endSession(playerId);
+        }
     }
 
     private void explodeDrone(Player player, Location previousTickLocation) {
