@@ -30,6 +30,8 @@ import me.petr1furious.hideandseek.weapons.InfiniteCrossbowWeapon;
 import me.petr1furious.hideandseek.weapons.OreshnikWeapon;
 import me.petr1furious.hideandseek.weapons.LocatorWeapon;
 import me.petr1furious.hideandseek.weapons.FPVDroneWeapon;
+import me.petr1furious.hideandseek.weapons.RadarWeapon;
+import me.petr1furious.hideandseek.weapons.GrappleBowWeapon;
 
 import java.util.Random;
 import java.util.List;
@@ -64,6 +66,8 @@ public class HideAndSeek extends JavaPlugin implements Listener {
     private HimarsWeapon himarsWeapon;
     private LocatorWeapon locatorWeapon;
     private FPVDroneWeapon fpvDroneWeapon;
+    private RadarWeapon radarWeapon;
+    private GrappleBowWeapon grappleBowWeapon;
 
     private final Set<UUID> gamePlayers = new HashSet<>();
 
@@ -82,6 +86,8 @@ public class HideAndSeek extends JavaPlugin implements Listener {
         himarsWeapon = new HimarsWeapon(gameConfig);
         locatorWeapon = new LocatorWeapon(gameConfig, this);
         fpvDroneWeapon = new FPVDroneWeapon(gameConfig, this);
+        radarWeapon = new RadarWeapon(gameConfig, this);
+        grappleBowWeapon = new GrappleBowWeapon(gameConfig);
         registerEvents();
     }
 
@@ -325,6 +331,7 @@ public class HideAndSeek extends JavaPlugin implements Listener {
                 oreshnikWeapon.onPlayerInteract(event);
                 locatorWeapon.onPlayerInteract(event);
                 fpvDroneWeapon.onPlayerInteract(event);
+                radarWeapon.onPlayerInteract(event);
             }
 
             @EventHandler
@@ -339,9 +346,13 @@ public class HideAndSeek extends JavaPlugin implements Listener {
                 if (event.getBow() == null)
                     return;
                 ItemStack bow = event.getBow();
-                if (bow.getItemMeta().hasCustomModelDataComponent() && bow.getType() == Material.CROSSBOW) {
-                    infiniteCrossbowWeapon.onBowShoot(event);
-                    himarsWeapon.onBowShoot(event);
+                if (bow.getItemMeta().hasCustomModelDataComponent()) {
+                    if (bow.getType() == Material.CROSSBOW) {
+                        infiniteCrossbowWeapon.onBowShoot(event);
+                        himarsWeapon.onBowShoot(event);
+                    } else if (bow.getType() == Material.BOW) {
+                        grappleBowWeapon.onBowShoot(event);
+                    }
                 }
             }
         }, this);
@@ -353,6 +364,8 @@ public class HideAndSeek extends JavaPlugin implements Listener {
         if (oreshnikWeapon.handleProjectileImpact(projectile, location, shooter, target))
             return true;
         if (himarsWeapon.handleProjectileImpact(projectile, location, shooter, target))
+            return true;
+        if (grappleBowWeapon.handleProjectileImpact(projectile, location, shooter, target))
             return true;
         return false;
     }
@@ -488,6 +501,14 @@ public class HideAndSeek extends JavaPlugin implements Listener {
 
     public FPVDroneWeapon getFpvDroneWeapon() {
         return fpvDroneWeapon;
+    }
+
+    public RadarWeapon getRadarWeapon() {
+        return radarWeapon;
+    }
+
+    public GrappleBowWeapon getGrappleBowWeapon() {
+        return grappleBowWeapon;
     }
 
     public void saveGameInventory(Player player) {

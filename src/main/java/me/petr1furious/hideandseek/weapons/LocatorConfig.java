@@ -8,7 +8,7 @@ public class LocatorConfig implements WeaponConfig {
     private long cooldown = 30; // seconds
     private double precision = 5;
     private int steps = 5;
-    private int effectLength = 8; // seconds
+    private int effectLength = 4; // seconds
 
     @Override
     public List<String> getPropertyNames() {

@@ -70,6 +70,10 @@ public class CommandHandler {
             return plugin.getLocatorWeapon().createItem(count);
         } else if (key.equals("fpv_drone") || key.equals("fpv")) {
             return plugin.getFpvDroneWeapon().createItem(count);
+        } else if (key.equals("radar") || key.equals("r")) {
+            return plugin.getRadarWeapon().createItem(count);
+        } else if (key.equals("grapple_bow") || key.equals("grapple") || key.equals("gb")) {
+            return plugin.getGrappleBowWeapon().createItem(count);
         }
         return null;
     }
@@ -159,6 +163,11 @@ public class CommandHandler {
                         builder.suggest("l");
                         builder.suggest("fpv_drone");
                         builder.suggest("fpv");
+                        builder.suggest("radar");
+                        builder.suggest("r");
+                        builder.suggest("grapple_bow");
+                        builder.suggest("grapple");
+                        builder.suggest("gb");
                         return builder.buildFuture();
                     }).then(Commands.argument("property", StringArgumentType.string()).suggests((ctx, builder) -> {
                         String weapon = StringArgumentType.getString(ctx, "weapon");
@@ -224,6 +233,8 @@ public class CommandHandler {
                         builder.suggest("himars");
                         builder.suggest("locator");
                         builder.suggest("fpv_drone");
+                        builder.suggest("radar");
+                        builder.suggest("grapple_bow");
                         return builder.buildFuture();
                     }).then(Commands.argument("count", IntegerArgumentType.integer(1)).executes(ctx -> {
                         String item = StringArgumentType.getString(ctx, "item");

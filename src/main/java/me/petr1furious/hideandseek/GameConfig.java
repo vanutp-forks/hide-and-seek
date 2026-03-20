@@ -16,6 +16,8 @@ import me.petr1furious.hideandseek.weapons.OreshnikConfig;
 import me.petr1furious.hideandseek.weapons.WeaponConfig;
 import me.petr1furious.hideandseek.weapons.LocatorConfig;
 import me.petr1furious.hideandseek.weapons.FPVDroneConfig;
+import me.petr1furious.hideandseek.weapons.RadarConfig;
+import me.petr1furious.hideandseek.weapons.GrappleBowConfig;
 
 public class GameConfig {
     FileConfiguration config;
@@ -38,6 +40,8 @@ public class GameConfig {
     private final HimarsConfig himars = new HimarsConfig();
     private final LocatorConfig locator = new LocatorConfig();
     private final FPVDroneConfig fpvDrone = new FPVDroneConfig();
+    private final RadarConfig radar = new RadarConfig();
+    private final GrappleBowConfig grappleBow = new GrappleBowConfig();
 
     private final Map<String, WeaponConfig> weaponConfigIndex = new HashMap<>();
 
@@ -59,6 +63,11 @@ public class GameConfig {
         weaponConfigIndex.put("l", locator);
         weaponConfigIndex.put("fpv_drone", fpvDrone);
         weaponConfigIndex.put("fpv", fpvDrone);
+        weaponConfigIndex.put("radar", radar);
+        weaponConfigIndex.put("r", radar);
+        weaponConfigIndex.put("grapple_bow", grappleBow);
+        weaponConfigIndex.put("grapple", grappleBow);
+        weaponConfigIndex.put("gb", grappleBow);
     }
 
     public void load() {
@@ -92,6 +101,8 @@ public class GameConfig {
         himars.load(weaponsRoot.getConfigurationSection("himars"));
         locator.load(weaponsRoot.getConfigurationSection("locator"));
         fpvDrone.load(weaponsRoot.getConfigurationSection("fpv_drone"));
+        radar.load(weaponsRoot.getConfigurationSection("radar"));
+        grappleBow.load(weaponsRoot.getConfigurationSection("grapple_bow"));
 
         enableGameInventory = config.getBoolean("enableGameInventory", false);
         gameInventory = config.getList("gameInventory", new ArrayList<ItemStack>()).toArray(new ItemStack[0]);
@@ -114,6 +125,8 @@ public class GameConfig {
         himars.save(getOrCreate(weaponsRoot, "himars"));
         locator.save(getOrCreate(weaponsRoot, "locator"));
         fpvDrone.save(getOrCreate(weaponsRoot, "fpv_drone"));
+        radar.save(getOrCreate(weaponsRoot, "radar"));
+        grappleBow.save(getOrCreate(weaponsRoot, "grapple_bow"));
         config.set("enableGameInventory", enableGameInventory);
         config.set("gameInventory", gameInventory);
     }
@@ -172,6 +185,14 @@ public class GameConfig {
 
     public FPVDroneConfig getFpvDrone() {
         return fpvDrone;
+    }
+
+    public RadarConfig getRadar() {
+        return radar;
+    }
+
+    public GrappleBowConfig getGrappleBow() {
+        return grappleBow;
     }
 
     public ItemStack[] getGameInventory() {
