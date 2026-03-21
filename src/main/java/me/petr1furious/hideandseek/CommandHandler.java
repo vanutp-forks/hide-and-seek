@@ -1,17 +1,10 @@
 package me.petr1furious.hideandseek;
 
-import java.util.List;
-
-import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
-import org.bukkit.inventory.ItemStack;
-
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.BoolArgumentType;
 import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
-
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.command.brigadier.argument.ArgumentTypes;
 import io.papermc.paper.command.brigadier.argument.resolvers.selector.PlayerSelectorArgumentResolver;
@@ -19,6 +12,11 @@ import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import me.petr1furious.hideandseek.weapons.WeaponConfig;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+
+import java.util.List;
 
 public class CommandHandler {
     private final HideAndSeek plugin;
@@ -352,6 +350,126 @@ public class CommandHandler {
                             player.sendMessage(Component.text("Game inventory loaded").color(NamedTextColor.GREEN));
                             return Command.SINGLE_SUCCESS;
                         })))
+                .then(Commands.literal("asp")
+                    .then(Commands.literal("enable")
+                        .executes(ctx -> {
+                            final var cfg = plugin.getGameConfig().getAspConfig();
+                            ctx.getSource().getSender().sendMessage(Component
+                                .text("ASP support is currently " + (cfg.enable ? "enabled" : "disabled"))
+                                .color(NamedTextColor.AQUA)
+                            );
+                            return Command.SINGLE_SUCCESS;
+                        })
+                        .then(Commands.argument("enable", BoolArgumentType.bool())
+                            .executes(ctx -> {
+                                final var cfg = plugin.getGameConfig().getAspConfig();
+                                final var value = BoolArgumentType.getBool(ctx, "enable");
+                                if (cfg.enable == value) {
+                                    ctx.getSource().getSender()
+                                        .sendMessage(Component
+                                            .text("ASP support is already " + (cfg.enable ? "enabled" : "disabled"))
+                                            .color(NamedTextColor.RED)
+                                        );
+                                    return Command.SINGLE_SUCCESS;
+                                }
+                                if (value && (cfg.gameWorldName == null || cfg.templateWorldName == null)) {
+                                    ctx.getSource().getSender()
+                                        .sendMessage(Component
+                                            .text("Set template and game world names before enabling ASP support")
+                                            .color(NamedTextColor.RED)
+                                        );
+                                    return Command.SINGLE_SUCCESS;
+                                }
+                                cfg.enable = value;
+                                saveGameSettings();
+                                ctx.getSource().getSender().sendMessage(Component
+                                    .text("ASP support " + (cfg.enable ? "enabled" : "disabled"))
+                                    .color(NamedTextColor.GREEN)
+                                );
+                                return Command.SINGLE_SUCCESS;
+                            })
+                        )
+                    )
+                    .then(Commands.literal("template_world")
+                        .executes(ctx -> {
+                            final var cfg = plugin.getGameConfig().getAspConfig();
+                            ctx.getSource().getSender().sendMessage(Component
+                                .text("Template world name is currently set to " + cfg.templateWorldName)
+                                .color(NamedTextColor.AQUA)
+                            );
+                            return Command.SINGLE_SUCCESS;
+                        })
+                        .then(Commands.argument("world_name", StringArgumentType.string())
+                            .executes(ctx -> {
+                                final var cfg = plugin.getGameConfig().getAspConfig();
+                                final var worldName = StringArgumentType.getString(ctx, "world_name");
+                                cfg.templateWorldName = worldName;
+                                saveGameSettings();
+                                ctx.getSource().getSender().sendMessage(Component
+                                    .text("Template world name set to " + worldName)
+                                    .color(NamedTextColor.GREEN)
+                                );
+                                return Command.SINGLE_SUCCESS;
+                            })
+                        )
+                    )
+                    .then(Commands.literal("game_world")
+                        .executes(ctx -> {
+                            final var cfg = plugin.getGameConfig().getAspConfig();
+                            ctx.getSource().getSender().sendMessage(Component
+                                .text("Game world name is currently set to " + cfg.gameWorldName)
+                                .color(NamedTextColor.AQUA)
+                            );
+                            return Command.SINGLE_SUCCESS;
+                        })
+                        .then(Commands.argument("world_name", StringArgumentType.string())
+                            .executes(ctx -> {
+                                final var cfg = plugin.getGameConfig().getAspConfig();
+                                final var worldName = StringArgumentType.getString(ctx, "world_name");
+                                cfg.gameWorldName = worldName;
+                                saveGameSettings();
+                                ctx.getSource().getSender().sendMessage(Component
+                                    .text("Game world name set to " + worldName)
+                                    .color(NamedTextColor.GREEN)
+                                );
+                                return Command.SINGLE_SUCCESS;
+                            })
+                        )
+                    )
+                    .then(Commands.literal("reset_world_on_start")
+                        .executes(ctx -> {
+                            final var cfg = plugin.getGameConfig().getAspConfig();
+                            ctx.getSource().getSender().sendMessage(Component
+                                .text("resetWorldOnStart is currently set to " + cfg.resetWorldOnStart)
+                                .color(NamedTextColor.AQUA)
+                            );
+                            return Command.SINGLE_SUCCESS;
+                        })
+                        .then(Commands.argument("enable", BoolArgumentType.bool())
+                            .executes(ctx -> {
+                                final var cfg = plugin.getGameConfig().getAspConfig();
+                                final var value = BoolArgumentType.getBool(ctx, "enable");
+                                cfg.resetWorldOnStart = value;
+                                saveGameSettings();
+                                ctx.getSource().getSender().sendMessage(Component
+                                    .text("Set resetWorldOnStart to " + value)
+                                    .color(NamedTextColor.GREEN)
+                                );
+                                return Command.SINGLE_SUCCESS;
+                            })
+                        )
+                    )
+                    .then(Commands.literal("reset_world")
+                        .executes(ctx -> {
+                            plugin.getAsp().setupWorld(true);
+                            ctx.getSource().getSender().sendMessage(Component
+                                .text("Game world reset")
+                                .color(NamedTextColor.GREEN)
+                            );
+                            return Command.SINGLE_SUCCESS;
+                        })
+                    )
+                )
                 .build();
             commands.register(rootBuilder);
         });
