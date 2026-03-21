@@ -8,6 +8,7 @@ import java.util.List;
 public class FPVDroneConfig implements WeaponConfig {
     private int maxFlightTicks = 20 * 20; // 20s
     private double explosionPower = 4.0;
+    private float soundVolume = 6.0f;
 
     public int getMaxFlightTicks() {
         return maxFlightTicks;
@@ -17,9 +18,13 @@ public class FPVDroneConfig implements WeaponConfig {
         return explosionPower;
     }
 
+    public float getSoundVolume() {
+        return soundVolume;
+    }
+
     @Override
     public List<String> getPropertyNames() {
-        return Arrays.asList("maxFlightSeconds", "explosionPower");
+        return Arrays.asList("maxFlightSeconds", "explosionPower", "soundVolume");
     }
 
     @Override
@@ -28,6 +33,7 @@ public class FPVDroneConfig implements WeaponConfig {
             switch (name) {
             case "maxFlightSeconds" -> maxFlightTicks = (int) (Double.parseDouble(value) * 20.0);
             case "explosionPower" -> explosionPower = Double.parseDouble(value);
+            case "soundVolume" -> soundVolume = Float.parseFloat(value);
             default -> {
                 return WeaponSetResult.UNKNOWN_PROPERTY;
             }
@@ -43,6 +49,7 @@ public class FPVDroneConfig implements WeaponConfig {
         return switch (name) {
         case "maxFlightSeconds" -> maxFlightTicks / 20.0;
         case "explosionPower" -> explosionPower;
+        case "soundVolume" -> soundVolume;
         default -> null;
         };
     }
@@ -53,6 +60,7 @@ public class FPVDroneConfig implements WeaponConfig {
             return;
         section.set("maxFlightSeconds", maxFlightTicks / 20.0);
         section.set("explosionPower", explosionPower);
+        section.set("soundVolume", soundVolume);
     }
 
     @Override
@@ -61,5 +69,6 @@ public class FPVDroneConfig implements WeaponConfig {
             return;
         maxFlightTicks = (int) (section.getDouble("maxFlightSeconds", maxFlightTicks / 20.0) * 20.0);
         explosionPower = section.getDouble("explosionPower", explosionPower);
+        soundVolume = (float) section.getDouble("soundVolume", soundVolume);
     }
 }

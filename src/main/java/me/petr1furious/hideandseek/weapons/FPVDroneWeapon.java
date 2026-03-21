@@ -19,9 +19,13 @@ import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerArmorStandManipulateEvent;
+import org.bukkit.event.player.PlayerDropItemEvent;
+import org.bukkit.event.player.PlayerItemHeldEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
@@ -36,12 +40,15 @@ import java.util.*;
 
 public class FPVDroneWeapon {
     private static final double DRONE_PLAYER_SCALE = 0.5;
+    private static final int DRONE_ACTIVE_SLOT = 0;
+    private static final int DRONE_ABORT_SLOT = 4;
 
     private final JavaPlugin plugin;
     private final FPVDroneConfig fpvConfig;
     private final Map<UUID, DroneSession> sessions = new HashMap<>();
 
     private final String TAG = "fpv_drone";
+    private final String ABORT_TAG = "fpv_drone_abort";
     private final String META_ANCHOR = "fpv_anchor";
     private final String META_DRONE_DISPLAY = "fpv_drone_display";
 
@@ -53,6 +60,7 @@ public class FPVDroneWeapon {
         final GameMode originalMode;
         final boolean originalAllowFlight;
         final ItemStack[] originalContents;
+        final int originalHeldSlot;
         final double health;
         final int foodLevel;
         final float saturation;
@@ -62,8 +70,8 @@ public class FPVDroneWeapon {
         boolean appliedInvisPotion = false;
 
         DroneSession(UUID playerId, ArmorStand anchor, BlockDisplay display, Location origin, int startTick,
-            GameMode originalMode, boolean originalAllowFlight, ItemStack[] originalContents, double health,
-            int foodLevel, float saturation, Double originalScale) {
+            GameMode originalMode, boolean originalAllowFlight, ItemStack[] originalContents, int originalHeldSlot,
+            double health, int foodLevel, float saturation, Double originalScale) {
             this.playerId = playerId;
             this.anchor = anchor;
             this.droneDisplay = display;
@@ -71,6 +79,7 @@ public class FPVDroneWeapon {
             this.originalMode = originalMode;
             this.originalAllowFlight = originalAllowFlight;
             this.originalContents = originalContents;
+            this.originalHeldSlot = originalHeldSlot;
             this.health = health;
             this.foodLevel = foodLevel;
             this.saturation = saturation;
@@ -149,6 +158,57 @@ public class FPVDroneWeapon {
                 DroneSession s = sessions.get(p.getUniqueId());
                 if (s != null && !s.ended) {
                     endSession(p.getUniqueId());
+                }
+            }
+
+            @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
+            public void onItemHeld(PlayerItemHeldEvent event) {
+                Player p = event.getPlayer();
+                DroneSession s = sessions.get(p.getUniqueId());
+                if (s == null || s.ended) {
+                    return;
+                }
+                ItemStack nextItem = p.getInventory().getItem(event.getNewSlot());
+                if (!isAbortItem(nextItem)) {
+                    return;
+                }
+                endSession(p.getUniqueId());
+                p.sendActionBar(Component.text("Drone flight aborted").color(NamedTextColor.YELLOW));
+            }
+
+            @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
+            public void onInventoryClick(InventoryClickEvent event) {
+                if (!(event.getWhoClicked() instanceof Player p)) {
+                    return;
+                }
+                DroneSession s = sessions.get(p.getUniqueId());
+                if (s == null || s.ended) {
+                    return;
+                }
+                event.setCancelled(true);
+            }
+
+            @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
+            public void onInventoryDrag(InventoryDragEvent event) {
+                if (!(event.getWhoClicked() instanceof Player p)) {
+                    return;
+                }
+                DroneSession s = sessions.get(p.getUniqueId());
+                if (s == null || s.ended) {
+                    return;
+                }
+                event.setCancelled(true);
+            }
+
+            @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
+            public void onDropItem(PlayerDropItemEvent event) {
+                Player p = event.getPlayer();
+                DroneSession s = sessions.get(p.getUniqueId());
+                if (s == null || s.ended) {
+                    return;
+                }
+                if (isAbortItem(event.getItemDrop().getItemStack())) {
+                    event.setCancelled(true);
                 }
             }
 
@@ -260,7 +320,8 @@ public class FPVDroneWeapon {
                 p.sendActionBar(Component.text("FPV: " + left + "s").color(NamedTextColor.AQUA));
 
                 if (tick % 10 == 0) {
-                    p.getWorld().playSound(p, Sound.ENTITY_BEE_LOOP, SoundCategory.PLAYERS, 4, 2);
+                    p.getWorld().playSound(p, Sound.ENTITY_BEE_LOOP, SoundCategory.PLAYERS, fpvConfig.getSoundVolume(),
+                        2);
                 }
 
                 s.lastLocation = p.getLocation().clone();
@@ -348,8 +409,6 @@ public class FPVDroneWeapon {
         DroneSession existing = sessions.get(player.getUniqueId());
         if (existing != null && !existing.ended) {
             event.setCancelled(true);
-            endSession(player.getUniqueId());
-            player.sendActionBar(Component.text("Drone flight aborted").color(NamedTextColor.YELLOW));
             return;
         }
         ItemStack item = event.getItem();
@@ -408,6 +467,7 @@ public class FPVDroneWeapon {
         GameMode originalMode = player.getGameMode();
         boolean originalAllowFlight = player.getAllowFlight();
         ItemStack[] originalContents = player.getInventory().getContents();
+        int originalHeldSlot = player.getInventory().getHeldItemSlot();
         double health = player.getHealth();
         int food = player.getFoodLevel();
         float saturation = player.getSaturation();
@@ -427,6 +487,8 @@ public class FPVDroneWeapon {
         player.teleport(player.getLocation().add(0, 0.05, 0));
         player.getInventory().clear();
         player.getInventory().setArmorContents(new ItemStack[] { null, null, null, null });
+        player.getInventory().setItem(DRONE_ABORT_SLOT, createAbortItem());
+        player.getInventory().setHeldItemSlot(DRONE_ACTIVE_SLOT);
         boolean addedPotion = false;
         if (!player.hasPotionEffect(PotionEffectType.INVISIBILITY)) {
             PotionEffect invis = new PotionEffect(PotionEffectType.INVISIBILITY, 20 * 60 * 30, 1, false, false, false);
@@ -435,10 +497,11 @@ public class FPVDroneWeapon {
         }
 
         DroneSession session = new DroneSession(player.getUniqueId(), anchor, display, origin, Bukkit.getCurrentTick(),
-            originalMode, originalAllowFlight, originalContents, health, food, saturation, originalScale);
+            originalMode, originalAllowFlight, originalContents, originalHeldSlot, health, food, saturation,
+            originalScale);
         session.appliedInvisPotion = addedPotion;
         sessions.put(player.getUniqueId(), session);
-        player.sendActionBar(Component.text("Drone deployed: right-click to abort").color(NamedTextColor.GREEN));
+        player.sendActionBar(Component.text("Drone deployed: select the barrier to abort").color(NamedTextColor.GREEN));
     }
 
     public void endSession(UUID playerId) {
@@ -459,6 +522,7 @@ public class FPVDroneWeapon {
             if (session.originalContents != null) {
                 player.getInventory().setContents(session.originalContents.clone());
             }
+            player.getInventory().setHeldItemSlot(session.originalHeldSlot);
 
             if (session.appliedInvisPotion) {
                 player.removePotionEffect(PotionEffectType.INVISIBILITY);
@@ -496,6 +560,21 @@ public class FPVDroneWeapon {
     private void explodeDrone(Player player, Location previousTickLocation) {
         Location location = previousTickLocation != null ? previousTickLocation : player.getLocation();
         Utils.spawnExplosion(location, fpvConfig.getExplosionPower(), player, true);
+    }
+
+    private ItemStack createAbortItem() {
+        ItemStack item = new ItemStack(Material.BARRIER);
+        Items.addTag(item, ABORT_TAG);
+        var meta = item.getItemMeta();
+        meta.displayName(
+            Component.text("Abort Drone").color(NamedTextColor.RED).decoration(TextDecoration.ITALIC, false));
+        meta.setEnchantmentGlintOverride(true);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private boolean isAbortItem(ItemStack item) {
+        return Items.checkForItem(item, ABORT_TAG);
     }
 
     public ItemStack createItem(int count) {

@@ -25,6 +25,11 @@ public class GameConfig {
     private Vector gameCenter;
     private String gameWorld;
     private int gameRadius;
+    private boolean arenaBorderEnabled;
+    private double arenaBorderInitialSize;
+    private double arenaBorderFinalSize;
+    private long arenaBorderTimeToFinalSeconds;
+    private double arenaBorderCenterRadius;
 
     private int distanceUpdateIntervalTicks;
     private int distanceGranularity;
@@ -79,6 +84,11 @@ public class GameConfig {
 
         gameWorld = config.getString("gameWorld", "world");
         gameRadius = config.getInt("gameRadius", 200);
+        arenaBorderEnabled = config.getBoolean("arenaBorderEnabled", false);
+        arenaBorderInitialSize = Math.max(1.0, config.getDouble("arenaBorderInitialSize", 400.0));
+        arenaBorderFinalSize = Math.max(1.0, config.getDouble("arenaBorderFinalSize", 100.0));
+        arenaBorderTimeToFinalSeconds = Math.max(0L, config.getLong("arenaBorderTimeToFinalSeconds", 600L));
+        arenaBorderCenterRadius = Math.max(0.0, config.getDouble("arenaBorderCenterRadius", 0.0));
 
         distanceUpdateIntervalTicks = config.getInt("distanceUpdateIntervalTicks", 80);
         if (distanceUpdateIntervalTicks < 1)
@@ -113,6 +123,11 @@ public class GameConfig {
         config.set("gameCenter", gameCenter);
         config.set("gameWorld", gameWorld);
         config.set("gameRadius", gameRadius);
+        config.set("arenaBorderEnabled", arenaBorderEnabled);
+        config.set("arenaBorderInitialSize", arenaBorderInitialSize);
+        config.set("arenaBorderFinalSize", arenaBorderFinalSize);
+        config.set("arenaBorderTimeToFinalSeconds", arenaBorderTimeToFinalSeconds);
+        config.set("arenaBorderCenterRadius", arenaBorderCenterRadius);
         config.set("distanceUpdateIntervalTicks", distanceUpdateIntervalTicks);
         config.set("distanceGranularity", distanceGranularity);
         config.set("enableLifts", enableLifts);
@@ -149,6 +164,26 @@ public class GameConfig {
 
     public int getGameRadius() {
         return gameRadius;
+    }
+
+    public boolean isArenaBorderEnabled() {
+        return arenaBorderEnabled;
+    }
+
+    public double getArenaBorderInitialSize() {
+        return arenaBorderInitialSize;
+    }
+
+    public double getArenaBorderFinalSize() {
+        return arenaBorderFinalSize;
+    }
+
+    public long getArenaBorderTimeToFinalSeconds() {
+        return arenaBorderTimeToFinalSeconds;
+    }
+
+    public double getArenaBorderCenterRadius() {
+        return arenaBorderCenterRadius;
     }
 
     public int getDistanceUpdateIntervalTicks() {
@@ -215,6 +250,31 @@ public class GameConfig {
 
     public void setGameRadius(int gameRadius) {
         this.gameRadius = gameRadius;
+        save();
+    }
+
+    public void setArenaBorderEnabled(boolean arenaBorderEnabled) {
+        this.arenaBorderEnabled = arenaBorderEnabled;
+        save();
+    }
+
+    public void setArenaBorderInitialSize(double arenaBorderInitialSize) {
+        this.arenaBorderInitialSize = Math.max(1.0, arenaBorderInitialSize);
+        save();
+    }
+
+    public void setArenaBorderFinalSize(double arenaBorderFinalSize) {
+        this.arenaBorderFinalSize = Math.max(1.0, arenaBorderFinalSize);
+        save();
+    }
+
+    public void setArenaBorderTimeToFinalSeconds(long arenaBorderTimeToFinalSeconds) {
+        this.arenaBorderTimeToFinalSeconds = Math.max(0L, arenaBorderTimeToFinalSeconds);
+        save();
+    }
+
+    public void setArenaBorderCenterRadius(double arenaBorderCenterRadius) {
+        this.arenaBorderCenterRadius = Math.max(0.0, arenaBorderCenterRadius);
         save();
     }
 

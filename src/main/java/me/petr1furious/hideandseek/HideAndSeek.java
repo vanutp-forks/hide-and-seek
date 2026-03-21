@@ -5,6 +5,7 @@ import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.WorldBorder;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Entity;
@@ -45,6 +46,27 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 public class HideAndSeek extends JavaPlugin implements Listener {
+    private static class WorldBorderState {
+        final String worldName;
+        final double centerX;
+        final double centerZ;
+        final double size;
+        final double damageAmount;
+        final double damageBuffer;
+        final int warningDistance;
+        final int warningTime;
+
+        WorldBorderState(World world, WorldBorder border) {
+            this.worldName = world.getName();
+            this.centerX = border.getCenter().getX();
+            this.centerZ = border.getCenter().getZ();
+            this.size = border.getSize();
+            this.damageAmount = border.getDamageAmount();
+            this.damageBuffer = border.getDamageBuffer();
+            this.warningDistance = border.getWarningDistance();
+            this.warningTime = border.getWarningTime();
+        }
+    }
 
     private CommandHandler commandHandler;
 
@@ -60,6 +82,9 @@ public class HideAndSeek extends JavaPlugin implements Listener {
 
     private int updateDistancesTaskID;
     private int ticksUntilNextDistanceUpdate = 0;
+    private Location activeArenaCenter;
+    private double activeArenaSpawnRadius = -1.0;
+    private WorldBorderState originalWorldBorderState;
 
     private InfiniteCrossbowWeapon infiniteCrossbowWeapon;
     private OreshnikWeapon oreshnikWeapon;
@@ -96,6 +121,7 @@ public class HideAndSeek extends JavaPlugin implements Listener {
         if (fpvDroneWeapon != null) {
             fpvDroneWeapon.endAllSessions();
         }
+        restoreArenaBorder();
     }
 
     public GameStatus getGameStatus() {
@@ -135,7 +161,12 @@ public class HideAndSeek extends JavaPlugin implements Listener {
             }
         }
         if (!success) {
-            Utils.teleportPlayerOnBlock(player);
+            Location fallback = Utils.getFirstSolidBlock(getCurrentGameCenter().toLocation(player.getWorld()));
+            if (fallback != null) {
+                player.teleport(fallback.add(0.5, 0, 0.5));
+            } else {
+                Utils.teleportPlayerOnBlock(player);
+            }
         }
         player.setGameMode(GameMode.SURVIVAL);
         player.addPotionEffect(new org.bukkit.potion.PotionEffect(org.bukkit.potion.PotionEffectType.INVISIBILITY,
@@ -156,6 +187,7 @@ public class HideAndSeek extends JavaPlugin implements Listener {
         getServer().sendMessage(Component.text("Starting game").color(NamedTextColor.GREEN));
 
         gamePlayers.clear();
+        setupArenaBorder();
 
         List<Player> chosen;
         if (participants == null || participants.isEmpty()) {
@@ -206,6 +238,7 @@ public class HideAndSeek extends JavaPlugin implements Listener {
         gameStatus = GameStatus.NOT_STARTED;
 
         getServer().getScheduler().cancelTask(updateDistancesTaskID);
+        restoreArenaBorder();
 
         for (UUID uuid : gamePlayers) {
             Player player = getServer().getPlayer(uuid);
@@ -218,6 +251,7 @@ public class HideAndSeek extends JavaPlugin implements Listener {
 
     void endGame() {
         gameStatus = GameStatus.ENDED;
+        restoreArenaBorder();
 
         var manager = Bukkit.getScoreboardManager();
         if (manager != null) {
@@ -452,27 +486,24 @@ public class HideAndSeek extends JavaPlugin implements Listener {
     }
 
     Location getRandomLocationInCube() {
-        Vector gameCenter = gameConfig.getGameCenter();
-        double gameRadius = gameConfig.getGameRadius();
+        Vector gameCenter = getCurrentGameCenter();
+        double gameRadius = getCurrentGameRadius();
         double x = gameCenter.getX() + (random.nextDouble() * 2 - 1) * gameRadius;
         double y = gameCenter.getY() + (random.nextDouble() * 2 - 1) * gameRadius;
         double z = gameCenter.getZ() + (random.nextDouble() * 2 - 1) * gameRadius;
 
-        List<World> worlds = Bukkit.getWorlds();
-        World world = worlds.get(0);
-        for (World w : worlds) {
-            if (w.getName().equals(gameConfig.getGameWorld())) {
-                world = w;
-                break;
-            }
+        World world = getConfiguredWorld();
+        if (world == null) {
+            List<World> worlds = Bukkit.getWorlds();
+            world = worlds.isEmpty() ? null : worlds.getFirst();
         }
 
         return new Location(world, x, y, z);
     }
 
     Location getRandomLocationInSphere() {
-        Vector gameCenter = gameConfig.getGameCenter();
-        double gameRadius = gameConfig.getGameRadius();
+        Vector gameCenter = getCurrentGameCenter();
+        double gameRadius = getCurrentGameRadius();
         while (true) {
             Location location = getRandomLocationInCube();
             if (location.distance(gameCenter.toLocation(location.getWorld())) <= gameRadius
@@ -481,6 +512,106 @@ public class HideAndSeek extends JavaPlugin implements Listener {
                 return location;
             }
         }
+    }
+
+    private void setupArenaBorder() {
+        restoreArenaBorder();
+        activeArenaCenter = null;
+        activeArenaSpawnRadius = -1.0;
+        if (!gameConfig.isArenaBorderEnabled()) {
+            return;
+        }
+
+        World world = getConfiguredWorld();
+        if (world == null) {
+            return;
+        }
+
+        WorldBorder border = world.getWorldBorder();
+        originalWorldBorderState = new WorldBorderState(world, border);
+
+        Location center = chooseArenaBorderCenter(world);
+        double initialSize = Math.max(1.0, gameConfig.getArenaBorderInitialSize());
+        double finalSize = Math.max(1.0, Math.min(initialSize, gameConfig.getArenaBorderFinalSize()));
+        long timeToFinal = Math.max(0L, gameConfig.getArenaBorderTimeToFinalSeconds());
+
+        border.setCenter(center);
+        border.setSize(initialSize);
+        if (timeToFinal > 0 && initialSize != finalSize) {
+            border.setSize(finalSize, timeToFinal);
+        }
+
+        activeArenaCenter = center;
+        activeArenaSpawnRadius = Math.max(1.0, Math.min(gameConfig.getGameRadius(), initialSize / 2.0 - 1.0));
+    }
+
+    private void restoreArenaBorder() {
+        activeArenaCenter = null;
+        activeArenaSpawnRadius = -1.0;
+        if (originalWorldBorderState == null) {
+            return;
+        }
+
+        World world = Bukkit.getWorld(originalWorldBorderState.worldName);
+        if (world == null) {
+            originalWorldBorderState = null;
+            return;
+        }
+
+        WorldBorder border = world.getWorldBorder();
+        border.setCenter(originalWorldBorderState.centerX, originalWorldBorderState.centerZ);
+        border.setSize(originalWorldBorderState.size);
+        border.setDamageAmount(originalWorldBorderState.damageAmount);
+        border.setDamageBuffer(originalWorldBorderState.damageBuffer);
+        border.setWarningDistance(originalWorldBorderState.warningDistance);
+        border.setWarningTime(originalWorldBorderState.warningTime);
+        originalWorldBorderState = null;
+    }
+
+    private Location chooseArenaBorderCenter(World world) {
+        Vector gameCenter = gameConfig.getGameCenter();
+        double radius = Math.max(0.0, gameConfig.getArenaBorderCenterRadius());
+        double offsetX = 0.0;
+        double offsetZ = 0.0;
+        if (radius > 0.0) {
+            double angle = random.nextDouble() * Math.PI * 2.0;
+            double distance = Math.sqrt(random.nextDouble()) * radius;
+            offsetX = Math.cos(angle) * distance;
+            offsetZ = Math.sin(angle) * distance;
+        }
+        return new Location(world, gameCenter.getX() + offsetX, gameCenter.getY(), gameCenter.getZ() + offsetZ);
+    }
+
+    private World getConfiguredWorld() {
+        for (World world : Bukkit.getWorlds()) {
+            if (world.getName().equals(gameConfig.getGameWorld())) {
+                return world;
+            }
+        }
+        return null;
+    }
+
+    private Vector getCurrentGameCenter() {
+        if (activeArenaCenter != null) {
+            World world = getConfiguredWorld();
+            if (world != null) {
+                return world.getWorldBorder().getCenter().toVector();
+            }
+            return activeArenaCenter.toVector();
+        }
+        return gameConfig.getGameCenter();
+    }
+
+    private double getCurrentGameRadius() {
+        if (activeArenaSpawnRadius > 0.0) {
+            World world = getConfiguredWorld();
+            if (world != null) {
+                double liveBorderRadius = world.getWorldBorder().getSize() / 2.0 - 1.0;
+                return Math.max(1.0, Math.min(activeArenaSpawnRadius, liveBorderRadius));
+            }
+            return activeArenaSpawnRadius;
+        }
+        return gameConfig.getGameRadius();
     }
 
     public InfiniteCrossbowWeapon getInfiniteCrossbowWeapon() {

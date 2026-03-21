@@ -8,6 +8,7 @@ import org.bukkit.inventory.ItemStack;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.BoolArgumentType;
+import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 
@@ -149,6 +150,54 @@ public class CommandHandler {
                         saveGameSettings();
                         ctx.getSource().getSender().sendMessage(
                             Component.text("Distance granularity set to " + granularity).color(NamedTextColor.GREEN));
+                        return Command.SINGLE_SUCCESS;
+                    })))
+                .then(Commands.literal("setarenaborder")
+                    .then(Commands.argument("enable", BoolArgumentType.bool()).executes(ctx -> {
+                        boolean enabled = BoolArgumentType.getBool(ctx, "enable");
+                        plugin.getGameConfig().setArenaBorderEnabled(enabled);
+                        saveGameSettings();
+                        ctx.getSource().getSender()
+                            .sendMessage(Component.text("Arena border " + (enabled ? "enabled" : "disabled"))
+                                .color(NamedTextColor.GREEN));
+                        return Command.SINGLE_SUCCESS;
+                    })))
+                .then(Commands.literal("setarenaborderinitialsize")
+                    .then(Commands.argument("size", DoubleArgumentType.doubleArg(1.0)).executes(ctx -> {
+                        double size = DoubleArgumentType.getDouble(ctx, "size");
+                        plugin.getGameConfig().setArenaBorderInitialSize(size);
+                        saveGameSettings();
+                        ctx.getSource().getSender().sendMessage(
+                            Component.text("Arena border initial size set to " + size).color(NamedTextColor.GREEN));
+                        return Command.SINGLE_SUCCESS;
+                    })))
+                .then(Commands.literal("setarenaborderfinalsize")
+                    .then(Commands.argument("size", DoubleArgumentType.doubleArg(1.0)).executes(ctx -> {
+                        double size = DoubleArgumentType.getDouble(ctx, "size");
+                        plugin.getGameConfig().setArenaBorderFinalSize(size);
+                        saveGameSettings();
+                        ctx.getSource().getSender().sendMessage(
+                            Component.text("Arena border final size set to " + size).color(NamedTextColor.GREEN));
+                        return Command.SINGLE_SUCCESS;
+                    })))
+                .then(Commands.literal("setarenabordertime")
+                    .then(Commands.argument("seconds", IntegerArgumentType.integer(0)).executes(ctx -> {
+                        int seconds = IntegerArgumentType.getInteger(ctx, "seconds");
+                        plugin.getGameConfig().setArenaBorderTimeToFinalSeconds(seconds);
+                        saveGameSettings();
+                        ctx.getSource().getSender().sendMessage(
+                            Component.text("Arena border shrink time set to " + seconds + "s")
+                                .color(NamedTextColor.GREEN));
+                        return Command.SINGLE_SUCCESS;
+                    })))
+                .then(Commands.literal("setarenacenterradius")
+                    .then(Commands.argument("radius", DoubleArgumentType.doubleArg(0.0)).executes(ctx -> {
+                        double radius = DoubleArgumentType.getDouble(ctx, "radius");
+                        plugin.getGameConfig().setArenaBorderCenterRadius(radius);
+                        saveGameSettings();
+                        ctx.getSource().getSender().sendMessage(
+                            Component.text("Arena border center radius set to " + radius)
+                                .color(NamedTextColor.GREEN));
                         return Command.SINGLE_SUCCESS;
                     })))
                 .then(Commands.literal("set")
