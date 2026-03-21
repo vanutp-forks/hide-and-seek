@@ -1,23 +1,15 @@
 package me.petr1furious.hideandseek;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
-
+import me.petr1furious.hideandseek.weapons.*;
 import org.bukkit.Material;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.Vector;
 
-import me.petr1furious.hideandseek.weapons.HimarsConfig;
-import me.petr1furious.hideandseek.weapons.InfiniteCrossbowConfig;
-import me.petr1furious.hideandseek.weapons.OreshnikConfig;
-import me.petr1furious.hideandseek.weapons.WeaponConfig;
-import me.petr1furious.hideandseek.weapons.LocatorConfig;
-import me.petr1furious.hideandseek.weapons.FPVDroneConfig;
-import me.petr1furious.hideandseek.weapons.RadarConfig;
-import me.petr1furious.hideandseek.weapons.GrappleBowConfig;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
 
 public class GameConfig {
     FileConfiguration config;
@@ -49,6 +41,8 @@ public class GameConfig {
     private final GrappleBowConfig grappleBow = new GrappleBowConfig();
 
     private final Map<String, WeaponConfig> weaponConfigIndex = new HashMap<>();
+
+    private final ASPConfig aspConfig = new ASPConfig();
 
     public GameConfig(FileConfiguration config) {
         this.config = config;
@@ -117,6 +111,7 @@ public class GameConfig {
         enableGameInventory = config.getBoolean("enableGameInventory", false);
         gameInventory = config.getList("gameInventory", new ArrayList<ItemStack>()).toArray(new ItemStack[0]);
 
+        aspConfig.load(config.getConfigurationSection("asp"));
     }
 
     public void save() {
@@ -144,6 +139,7 @@ public class GameConfig {
         grappleBow.save(getOrCreate(weaponsRoot, "grapple_bow"));
         config.set("enableGameInventory", enableGameInventory);
         config.set("gameInventory", gameInventory);
+        aspConfig.save(getOrCreate(config, "asp"));
     }
 
     private org.bukkit.configuration.ConfigurationSection getOrCreate(
@@ -307,5 +303,9 @@ public class GameConfig {
         if (weaponName == null)
             return null;
         return weaponConfigIndex.get(weaponName.toLowerCase(Locale.ROOT));
+    }
+
+    public ASPConfig getAspConfig() {
+        return aspConfig;
     }
 }

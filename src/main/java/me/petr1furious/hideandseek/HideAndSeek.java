@@ -94,6 +94,8 @@ public class HideAndSeek extends JavaPlugin implements Listener {
     private RadarWeapon radarWeapon;
     private GrappleBowWeapon grappleBowWeapon;
 
+    private ASP asp;
+
     private final Set<UUID> gamePlayers = new HashSet<>();
 
     LegacyComponentSerializer legacySerializer = LegacyComponentSerializer
@@ -113,6 +115,7 @@ public class HideAndSeek extends JavaPlugin implements Listener {
         fpvDroneWeapon = new FPVDroneWeapon(gameConfig, this);
         radarWeapon = new RadarWeapon(gameConfig, this);
         grappleBowWeapon = new GrappleBowWeapon(gameConfig);
+        asp = new ASP(gameConfig.getAspConfig(), this);
         registerEvents();
     }
 
@@ -185,6 +188,8 @@ public class HideAndSeek extends JavaPlugin implements Listener {
         gameStatus = GameStatus.RUNNING;
         checkingGameEnd = false;
         getServer().sendMessage(Component.text("Starting game").color(NamedTextColor.GREEN));
+
+        asp.setupWorld(false);
 
         gamePlayers.clear();
         setupArenaBorder();
@@ -651,5 +656,9 @@ public class HideAndSeek extends JavaPlugin implements Listener {
             player.getInventory().clear();
             player.getInventory().setContents(getGameConfig().getGameInventory());
         }
+    }
+
+    public ASP getAsp() {
+        return asp;
     }
 }
