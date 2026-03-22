@@ -1,11 +1,6 @@
 package me.petr1furious.hideandseek;
 
-import org.bukkit.Bukkit;
-import org.bukkit.GameMode;
-import org.bukkit.Location;
-import org.bukkit.Material;
-import org.bukkit.World;
-import org.bukkit.WorldBorder;
+import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Entity;
@@ -191,6 +186,12 @@ public class HideAndSeek extends JavaPlugin implements Listener {
 
         asp.setupWorld(false);
 
+        final var world = getConfiguredWorld();
+        world.setGameRule(GameRule.DO_MOB_SPAWNING, false);
+        world.setGameRule(GameRule.DO_TILE_DROPS, false);
+        world.setGameRule(GameRule.KEEP_INVENTORY, true);
+        world.setDifficulty(Difficulty.NORMAL);
+
         gamePlayers.clear();
         setupArenaBorder();
 
@@ -206,7 +207,6 @@ public class HideAndSeek extends JavaPlugin implements Listener {
 
         for (Player player : chosen) {
             addPlayerToGame(player, false);
-            gamePlayers.add(player.getUniqueId());
         }
 
         getServer().getScheduler().cancelTask(updateDistancesTaskID);
