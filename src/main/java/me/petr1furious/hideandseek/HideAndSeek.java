@@ -39,6 +39,7 @@ import java.util.ArrayList;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import org.jetbrains.annotations.NotNull;
 
 public class HideAndSeek extends JavaPlugin implements Listener {
     private static class WorldBorderState {
@@ -133,7 +134,7 @@ public class HideAndSeek extends JavaPlugin implements Listener {
     public boolean isPlayerInGame(Player player) {
         return gameStatus == GameStatus.RUNNING && gamePlayers.contains(player.getUniqueId())
             && player.getGameMode() != GameMode.SPECTATOR && player.getGameMode() != GameMode.CREATIVE
-            && player.getWorld().getName().equals(gameConfig.getGameWorld());
+            && player.getWorld() == getConfiguredWorld();
     }
 
     void addPlayerToGame(Player player, boolean broadcast) {
@@ -421,7 +422,7 @@ public class HideAndSeek extends JavaPlugin implements Listener {
         for (Player player1 : getServer().getOnlinePlayers()) {
             if (!gamePlayers.contains(player1.getUniqueId()))
                 continue;
-            if (!player1.getWorld().getName().equals(gameConfig.getGameWorld()))
+            if (player1.getWorld() != getConfiguredWorld())
                 continue;
             Scoreboard scoreboard = manager.getNewScoreboard();
             player1.setScoreboard(scoreboard);
@@ -496,13 +497,7 @@ public class HideAndSeek extends JavaPlugin implements Listener {
         double x = gameCenter.getX() + (random.nextDouble() * 2 - 1) * gameRadius;
         double y = gameCenter.getY() + (random.nextDouble() * 2 - 1) * gameRadius;
         double z = gameCenter.getZ() + (random.nextDouble() * 2 - 1) * gameRadius;
-
         World world = getConfiguredWorld();
-        if (world == null) {
-            List<World> worlds = Bukkit.getWorlds();
-            world = worlds.isEmpty() ? null : worlds.getFirst();
-        }
-
         return new Location(world, x, y, z);
     }
 
@@ -528,9 +523,6 @@ public class HideAndSeek extends JavaPlugin implements Listener {
         }
 
         World world = getConfiguredWorld();
-        if (world == null) {
-            return;
-        }
 
         WorldBorder border = world.getWorldBorder();
         originalWorldBorderState = new WorldBorderState(world, border);
@@ -587,34 +579,26 @@ public class HideAndSeek extends JavaPlugin implements Listener {
         return new Location(world, gameCenter.getX() + offsetX, gameCenter.getY(), gameCenter.getZ() + offsetZ);
     }
 
-    private World getConfiguredWorld() {
-        for (World world : Bukkit.getWorlds()) {
-            if (world.getName().equals(gameConfig.getGameWorld())) {
-                return world;
-            }
+    private @NotNull World getConfiguredWorld() {
+        final var world = Bukkit.getWorld(gameConfig.getGameWorld());
+        if (world == null) {
+            throw new IllegalStateException("Game world '" + gameConfig.getGameWorld() + "' is not loaded");
         }
-        return null;
+        return world;
     }
 
     private Vector getCurrentGameCenter() {
-        if (activeArenaCenter != null) {
-            World world = getConfiguredWorld();
-            if (world != null) {
-                return world.getWorldBorder().getCenter().toVector();
-            }
-            return activeArenaCenter.toVector();
+        if (gameStatus != GameStatus.NOT_STARTED && activeArenaCenter != null) {
+            return getConfiguredWorld().getWorldBorder().getCenter().toVector();
         }
         return gameConfig.getGameCenter();
     }
 
     private double getCurrentGameRadius() {
-        if (activeArenaSpawnRadius > 0.0) {
+        if (gameStatus != GameStatus.NOT_STARTED && activeArenaSpawnRadius > 0.0) {
             World world = getConfiguredWorld();
-            if (world != null) {
-                double liveBorderRadius = world.getWorldBorder().getSize() / 2.0 - 1.0;
-                return Math.max(1.0, Math.min(activeArenaSpawnRadius, liveBorderRadius));
-            }
-            return activeArenaSpawnRadius;
+            double liveBorderRadius = world.getWorldBorder().getSize() / 2.0 - 1.0;
+            return Math.max(1.0, Math.min(activeArenaSpawnRadius, liveBorderRadius));
         }
         return gameConfig.getGameRadius();
     }
